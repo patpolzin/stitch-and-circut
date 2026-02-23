@@ -1,0 +1,29 @@
+# Analysis options for Stitch & Circuit
+# https://dart.dev/guides/language/analysis-options
+
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # Style rules
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_final_fields: true
+    prefer_final_locals: true
+    avoid_print: false  # Allow prints during development
+
+    # Documentation (relaxed for game development)
+    public_member_api_docs: false
+
+    # Formatting
+    lines_longer_than_80_chars: false  # Games often have longer lines
+
+analyzer:
+  errors:
+    # Treat missing required params as error
+    missing_required_param: error
+    # Treat unused imports as warning
+    unused_import: warning
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"

@@ -1,0 +1,14 @@
+# Level data directory
+# Place level JSON files here for dynamic level loading
+
+# Level file format example (level_1_1.json):
+# {
+#   "world": 1,
+#   "level": 1,
+#   "name": "First Steps",
+#   "spawn": {"x": 100, "y": 500},
+#   "exit": {"x": 700, "y": 500},
+#   "platforms": [...],
+#   "targets": [...],
+#   "collectibles": [...]
+# }

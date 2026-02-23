@@ -1,0 +1,22 @@
+# Audio assets directory
+# Place sound effects and music files here
+
+# Recommended audio files:
+# Sound Effects (.wav):
+# - footstep_metal.wav
+# - footstep_yarn.wav
+# - land_heavy.wav
+# - jump.wav
+# - grapple_click.wav
+# - swing_whoosh.wav
+# - electric_pulse.wav
+# - stitch.wav
+# - collect_yarn.wav
+# - level_complete.wav
+# - bit_beep_happy.wav
+# - bit_beep_sad.wav
+
+# Music (.mp3):
+# - music_workshop.mp3
+# - music_glitchy_garden.mp3
+# - music_puzzle.mp3

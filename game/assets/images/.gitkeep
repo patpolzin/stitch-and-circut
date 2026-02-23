@@ -1,0 +1,9 @@
+# Image assets directory
+# Place sprite sheets, backgrounds, and UI images here
+
+# Recommended assets to create:
+# - bit_sprite.png (Bit character sprite sheet)
+# - workshop_bg.png (Workshop hub background)
+# - level_tiles.png (Tilemap for levels)
+# - ui_elements.png (UI buttons and icons)
+# - yarn_ball.png (Collectible yarn ball sprite)
