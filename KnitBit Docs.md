@@ -52,7 +52,7 @@ The game features an adaptive AI narrator, "Motherboard," who encourages players
   * **Head:** CRT Monitor shape, Gunmetal Grey plating.  
   * **Face:** Pixelated neon green LED grid. Displays emotions (Happy, Thinking, Scared, Effort).  
   * **Body:** Heavy industrial armor plates.  
-  * **Joints/Cabling:** **Burgundy Knit Wiring** (Thick texture, visible individual threads).  
+  * **Joints/Cabling:** **Braided Knit Wiring** (Thick texture, visible individual threads). The canonical *neutral base* yarn is **dark charcoal**; burgundy and other colors are selectable theme/skin swaps, not the base default. See `docs/KnitBit-Base-Spec.md` (§1, §7) for the canonical Species DNA and theme color legend.  
 * **Audio:**  
   * **Movement:** Heavy metallic *clank* mixed with a muffled *thud* (dampened by the yarn).  
   * **Voice:** R2-D2 style beeps, but lower pitch and "warmer" tones (like a cello or woodwind synthesized).

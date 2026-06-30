@@ -45,11 +45,18 @@ class BitCharacter extends PositionComponent with HasGameRef, CollisionCallbacks
   bool _isBlinking = false;
   double _expressionTimer = 0;
 
-  // Colors from design doc
+  // Colors from design doc / KnitBit Base Spec (docs/KnitBit-Base-Spec.md).
+  // Canonical neutral base yarn is charcoal; burgundy is a selectable theme/skin,
+  // not the base default. Theme packs swap `yarnColor` (see §7 of the spec).
   static const Color gunmetalGrey = Color(0xFF2A3439);
-  static const Color burgundyYarn = Color(0xFF722F37);
+  static const Color charcoalYarn = Color(0xFF3A3F44); // canonical base yarn
+  static const Color burgundyYarn = Color(0xFF722F37); // theme/skin option, not base
   static const Color neonGreen = Color(0xFF39FF14);
   static const Color screenColor = Color(0xFF0a0a0a);
+
+  /// Active yarn color for the knit wiring. Defaults to the canonical charcoal
+  /// base; assign a theme color (e.g. [burgundyYarn]) to reskin Bit.
+  Color yarnColor = charcoalYarn;
 
   @override
   Future<void> onLoad() async {
@@ -128,7 +135,7 @@ class BitCharacter extends PositionComponent with HasGameRef, CollisionCallbacks
   void _drawBody(Canvas canvas) {
     final bodyPaint = Paint()..color = gunmetalGrey;
     final yarnPaint = Paint()
-      ..color = burgundyYarn
+      ..color = yarnColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 
@@ -334,7 +341,7 @@ class BitCharacter extends PositionComponent with HasGameRef, CollisionCallbacks
   void _drawArms(Canvas canvas) {
     final metalPaint = Paint()..color = gunmetalGrey;
     final yarnPaint = Paint()
-      ..color = burgundyYarn
+      ..color = yarnColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round;
@@ -357,7 +364,7 @@ class BitCharacter extends PositionComponent with HasGameRef, CollisionCallbacks
   void _drawLegs(Canvas canvas) {
     final metalPaint = Paint()..color = gunmetalGrey;
     final yarnPaint = Paint()
-      ..color = burgundyYarn
+      ..color = yarnColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5;
 
