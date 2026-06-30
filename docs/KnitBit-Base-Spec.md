@@ -178,19 +178,33 @@ artist/generation reference for each family.
 
 ---
 
-## 8. Post-process: applying sockets in Blender
+## 8. Rigging & sockets (Blender / Mixamo)
 
-Higgsfield outputs a textured, humanoid-rigged GLB. To make it production-ready:
+**Status:** Higgsfield/Meshy produced an excellent *textured* base mesh
+(`assets/3d/knitbit_base/knitbit_base_apose_textured.glb`) but its **auto-rigger failed**
+on KnitBit's chibi proportions (oversized head + short armored limbs fused to a wide
+torso) — three `3d_rigging` attempts failed. Auto-riggers target human proportions, so the
+rig is done by hand. This is the normal path for a stylized hero asset.
 
-1. Import `knitbit_base_rigged.glb`.
-2. Rename bones to match §3.
-3. For each socket in §4: add an Empty, parent it to the listed bone, position it at the
+### Recommended: rig the A-pose mesh
+
+1. Start from `knitbit_base_apose_textured.glb` (already in a rig-friendly A-pose).
+2. **Skeleton** — build the §3 humanoid hierarchy. Fastest route: **Mixamo** (upload the
+   GLB, drop the rig markers, auto-skin) or **Blender Rigify**. Keep bone names matching
+   §3 for VRM compatibility and clean animation retargeting.
+3. **Skin weights** — the rigid armor plates should be near-rigid (weight ~1.0 to the
+   nearest bone); let the braided-yarn sections at the joints carry the blend so they read
+   as the soft "unravel" material from the game design.
+
+### Then: add sockets
+
+4. For each socket in §4: add an Empty, parent it to the listed bone, position it at the
    attachment point, name it exactly as in the table.
-4. (Optional) Export a clean `knitbit_base_rigged_socketed.glb` as the canonical base all
-   accessories snap to.
+5. Export the canonical rigged base as `assets/3d/knitbit_base/knitbit_base_rigged.glb`
+   (and an optional `knitbit_base_idle.glb` carrying one idle clip as the rig validation).
 
-The sockets are intentionally additive — they don't alter the mesh or skin weights, so the
-base stays stable as the trait library grows.
+Sockets are additive — they don't alter the mesh or skin weights, so the base stays stable
+as the trait library grows.
 
 ---
 
