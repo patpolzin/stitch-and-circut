@@ -186,22 +186,40 @@ on KnitBit's chibi proportions (oversized head + short armored limbs fused to a 
 torso) — three `3d_rigging` attempts failed. Auto-riggers target human proportions, so the
 rig is done by hand. This is the normal path for a stylized hero asset.
 
-### Recommended: rig the A-pose mesh
+### Recommended: run the rig script
 
-1. Start from `knitbit_base_apose_textured.glb` (already in a rig-friendly A-pose).
-2. **Skeleton** — build the §3 humanoid hierarchy. Fastest route: **Mixamo** (upload the
-   GLB, drop the rig markers, auto-skin) or **Blender Rigify**. Keep bone names matching
-   §3 for VRM compatibility and clean animation retargeting.
-3. **Skin weights** — the rigid armor plates should be near-rigid (weight ~1.0 to the
-   nearest bone); let the braided-yarn sections at the joints carry the blend so they read
-   as the soft "unravel" material from the game design.
+`tools/rig_knitbit.py` does the skeleton + skinning + sockets in one pass. Blender isn't
+available in the agent container, so run it locally:
 
-### Then: add sockets
+```
+blender --background --python tools/rig_knitbit.py
+```
 
-4. For each socket in §4: add an Empty, parent it to the listed bone, position it at the
-   attachment point, name it exactly as in the table.
-5. Export the canonical rigged base as `assets/3d/knitbit_base/knitbit_base_rigged.glb`
-   (and an optional `knitbit_base_idle.glb` carrying one idle clip as the rig validation).
+It imports `knitbit_base_apose_textured.glb`, builds the §3 humanoid armature (bone
+positions derived from the mesh bounds via the script's `LANDMARKS`/`HW` config), skins
+with automatic (heat) weights, adds the §4 socket empties, and writes
+`assets/3d/knitbit_base/knitbit_base_rigged.glb`. Bone names follow §3 for VRM/Mixamo
+retargeting.
+
+**Skin-weight intent:** rigid armor plates should stay near-rigid (weight ~1.0 to the
+nearest bone); the braided-yarn joint sections carry the blend so they read as the soft
+"unravel" material from the game design. Automatic weights approximate this; refine in
+Blender weight-paint if a joint pinches, then re-export.
+
+### Verify & sockets
+
+1. Open the result in Blender; pose-test each limb. If a joint deforms poorly, nudge the
+   `LANDMARKS`/`HW` fractions in the script and re-run.
+2. The §4 socket empties are created as `socket_<name>` parented to the right bones —
+   confirm their placement against the mesh and adjust if needed.
+3. Optional idle validation: add one idle clip (e.g. from Mixamo) and export
+   `assets/3d/knitbit_base/knitbit_base_idle.glb`.
+
+### Alternative: Mixamo
+
+Upload `knitbit_base_apose_textured.glb`, place the rig markers, auto-skin, export — then
+re-add the §4 sockets in Blender. Use this if the script's heat-weights need help on the
+chunky proportions.
 
 Sockets are additive — they don't alter the mesh or skin weights, so the base stays stable
 as the trait library grows.
