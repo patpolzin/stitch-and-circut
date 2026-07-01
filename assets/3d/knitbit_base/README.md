@@ -63,3 +63,30 @@ area by hand, and re-export (or nudge `LANDMARKS`/`HW` in the script and re-run 
 better bone placement can also reduce how many vertices need the fallback).
 
 The neutral base uses **charcoal** yarn; theme packs swap yarn color (spec §7).
+
+## Pilot trait batch (spec §6 build-order step 4) ✅ Phase A
+
+| Path | What |
+| --- | --- |
+| `traits/pilot/antenna.glb` | Classic bulb antenna (used as a mirrored pair) |
+| `traits/pilot/helmet_panel.glb` | Reinforced helmet top panel |
+| `traits/pilot/chest_icon.glb` | Star chest badge |
+| `traits/pilot/belt_charm.glb` | Gear belt charm (has a small stray chain-link artifact — see spec §6) |
+| `traits/pilot/backpack.glb` | Backpack |
+| `knitbit_pilot_preview.glb` | All 6 props (antenna pair + 4 others) socket-fitted onto `knitbit_base_rigged.glb` |
+| `knitbit_pilot_preview_front.png` / `_side.png` | Rendered verification (Blender Workbench under Xvfb — no display in this container) |
+
+Built with `tools/fit_traits.py`:
+
+```
+xvfb-run -a blender --background --python tools/fit_traits.py
+```
+
+(`xvfb-run` is only needed for the render step; the fit + export runs headless without
+it, but the script always attempts both.) Each prop is a plain static mesh, so it's
+**object-parented** to its target socket empty — no rigging/skinning involved, so none of
+the base rig's exporter-crash class applies here.
+
+Full writeup, including the parenting bug that put every prop at the scene origin before
+the fix (identity vs. cancelling `matrix_parent_inverse`), and the reverted mesh-cleanup
+attempt, is in `docs/KnitBit-Base-Spec.md` §6.

@@ -140,20 +140,56 @@ Prove the base before scaling traits:
 1. Build neutral base KnitBit ✅ *(art + 3D base)*
 2. Build front / 3-4 / side / back reference sheet ✅
 3. Define skeleton + socket map ✅ *(§3–4; sockets applied in Blender)*
-4. Validate one small **pilot** accessory set *(next)*
-5. Build the full Master Trait Diagram sheet
+4. Validate one small **pilot** accessory set ✅ *(Phase A done — see below)*
+5. Build the full Master Trait Diagram sheet *(next)*
 6. Produce trait families by category
 7. Produce theme packs
 8. Build compatibility + rarity rules
 
 ### Pilot trait batch (step 4 — small, to prove the modular system)
-| Slot | Options |
-| --- | --- |
-| Antenna | Classic bulbs · scout cameras · leaf tips |
-| Helmet top panel | Smooth · reinforced · yarn patch |
-| Chest icon | Star · wrench · leaf |
-| Belt charm | Coin · gear · flower |
-| Accessory | Backpack · headphones · watering can |
+
+**Status: Phase A done.** One option per slot was generated, converted to 3D, and
+socket-fitted to prove the attachment mechanics work before spending on the rest of the
+table below.
+
+| Slot | Options | Phase A pick |
+| --- | --- | --- |
+| Antenna | Classic bulbs · scout cameras · leaf tips | ✅ Classic bulb (pair) |
+| Helmet top panel | Smooth · reinforced · yarn patch | ✅ Reinforced |
+| Chest icon | Star · wrench · leaf | ✅ Star |
+| Belt charm | Coin · gear · flower | ✅ Gear |
+| Accessory | Backpack · headphones · watering can | ✅ Backpack |
+
+**Pipeline:** Higgsfield `generate_image` (concept art, styled to the DNA in §1) →
+`image_to_3d` (textured + PBR mesh per prop, no rigging needed — static props) →
+`tools/fit_traits.py` (Blender: imports the rigged base + each prop, scales to a
+per-prop target size, **object-parents** the prop to its `socket_<name>` empty, exports
+the assembled scene, and renders two verification angles under Xvfb since this container
+has no display).
+
+**Result:** `assets/3d/knitbit_base/knitbit_pilot_preview.glb` — base + all 6 props
+(antenna is a mirrored pair), each correctly parented to its socket, confirmed both
+structurally (parent/child graph parsed from the glTF) and visually (rendered PNGs).
+Antenna, helmet panel, chest icon, and backpack all placed and scaled well; the backpack
+in particular is correctly hidden from the front and reads clearly on the back in profile.
+
+**Known issue:** the belt charm's source photo included a hanging chain link, which
+`image_to_3d` reconstructed as small disconnected geometry near the main gear body —
+visible as a stray floating fragment in the render. Tried and reverted an automatic "keep
+largest connected mesh island" cleanup (`bpy.ops.mesh.separate(type='LOOSE')`): these
+meshes are naturally composed of hundreds to thousands of disconnected micro-patches
+(normal for dense hard-surface reconstructions, not just this one prop), so "largest
+island" cut real geometry off *every* prop rather than just removing the stray chain.
+**Takeaway for future concept art:** keep prop reference photos free of incidental
+dangling/chained elements — the reconstruction will include whatever's in frame.
+
+**Individual pilot prop assets:** `assets/3d/knitbit_base/traits/pilot/{antenna,
+helmet_panel, chest_icon, belt_charm, backpack}.glb` — textured, unrigged, ready to
+socket-fit onto future base exports the same way.
+
+**Phase B (not started):** the remaining 10 variants (scout camera & leaf-tip antennas,
+smooth & yarn-patch helmet panels, wrench & leaf chest icons, coin & flower belt charms,
+headphones & watering can accessories) to complete the table above.
 
 ---
 
