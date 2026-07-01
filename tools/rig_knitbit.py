@@ -11,22 +11,34 @@ WHY THIS EXISTS
 
 INPUT   assets/3d/knitbit_base/knitbit_base_apose_textured.glb   (canonical A-pose)
 OUTPUT  assets/3d/knitbit_base/knitbit_base_rigged.glb
+        assets/3d/knitbit_base/knitbit_base_idle.glb   (same rig + a procedural idle clip)
 
-RUN (Blender not installed in the agent container — run this locally):
+RUN:
     blender --background --python tools/rig_knitbit.py
     # optional overrides:
     blender --background --python tools/rig_knitbit.py -- \
         --in path/to/input.glb --out path/to/output.glb
 
+    Requires Blender's bundled Python to have numpy (needed by the glTF I/O addon):
+    apt-get install python3-numpy   (if using the apt 'blender' package on Debian/Ubuntu,
+    which links the system Python rather than bundling its own).
+
 NOTES
     - Bone positions are derived from the mesh bounding box using proportion
       fractions in LANDMARKS below. They are good estimates for a chibi biped;
       nudge them in Blender's edit mode if a joint deforms poorly, then re-export.
-    - Skinning uses Blender's automatic (heat) weights. Armor plates read as
-      near-rigid; the braided-yarn joint sections carry the blend — matching the
-      soft "unravel" material from the game design.
+    - Skinning tries automatic (heat) weights first, falls back to envelope
+      weights if heat fails broadly (common on hard-surface meshes with many
+      disconnected shells — screws, bolts, panel trim — which the heat solver
+      can't bridge), then does a rigid nearest-bone assignment for any vertex
+      still unweighted. See skin() for details and why the last step also
+      works around a Blender 4.0.2 glTF-exporter crash (add_neutral_bones).
     - Bone names follow the VRM/Mixamo-friendly Hips/Spine/Chest/Neck/Head +
       .L/.R limb convention so animation retargeting stays clean.
+    - Socket empties are object-parented to the armature (not bone-parented —
+      that combination also crashes the exporter) with the intended bone name
+      stored as a custom property (`attach_bone`, exported as glTF `extras`).
+      Re-parent to the live bone in-engine/downstream for animated attachment.
 """
 
 import bpy
@@ -47,6 +59,9 @@ def _repo_root():
 
 DEFAULT_IN = os.path.join(_repo_root(), "assets/3d/knitbit_base/knitbit_base_apose_textured.glb")
 DEFAULT_OUT = os.path.join(_repo_root(), "assets/3d/knitbit_base/knitbit_base_rigged.glb")
+DEFAULT_IDLE_OUT = os.path.join(_repo_root(), "assets/3d/knitbit_base/knitbit_base_idle.glb")
+IDLE_FPS = 30
+IDLE_FRAMES = 30  # 1-second loop
 
 # Approximate real-world height (m). KnitBit "feels" ~4ft. Only affects scale hints.
 HEIGHT_METERS = 1.2
@@ -90,14 +105,16 @@ Vector = _get_vector()  # noqa: F811  (override the shim import above)
 def parse_args():
     argv = sys.argv
     argv = argv[argv.index("--") + 1:] if "--" in argv else []
-    in_path, out_path = DEFAULT_IN, DEFAULT_OUT
+    in_path, out_path, idle_out_path = DEFAULT_IN, DEFAULT_OUT, DEFAULT_IDLE_OUT
     it = iter(argv)
     for a in it:
         if a == "--in":
             in_path = next(it)
         elif a == "--out":
             out_path = next(it)
-    return in_path, out_path
+        elif a == "--idle-out":
+            idle_out_path = next(it)
+    return in_path, out_path, idle_out_path
 
 
 def clean_scene():
@@ -220,13 +237,107 @@ def build_armature(mn, mx):
 # Skinning
 # --------------------------------------------------------------------------- #
 
-def skin(mesh_obj, arm_obj):
-    bpy.ops.object.select_all(action="DESELECT")
-    mesh_obj.select_set(True)
-    arm_obj.select_set(True)
-    bpy.context.view_layer.objects.active = arm_obj
-    # Automatic (heat) weights.
-    bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+def skin(mesh_obj, arm_obj, hw):
+    def do_parent(ptype):
+        bpy.ops.object.select_all(action="DESELECT")
+        mesh_obj.select_set(True)
+        arm_obj.select_set(True)
+        bpy.context.view_layer.objects.active = arm_obj
+        bpy.ops.object.parent_set(type=ptype)
+
+    total = len(mesh_obj.data.vertices)
+
+    # Attempt 1: automatic (heat) weights. Works well on connected, mostly-manifold
+    # meshes but can fail broadly on hard-surface meshes with many disconnected
+    # shells (screws, bolts, panel trim) — common in AI-generated sculpts.
+    do_parent("ARMATURE_AUTO")
+    unweighted = count_unweighted_vertices(mesh_obj, arm_obj)
+    print(f"[rig] heat weighting: {total - unweighted}/{total} vertices weighted")
+
+    if unweighted > total * 0.5:
+        # Attempt 2: envelope weights — geometric distance to bone segments, no
+        # mesh-connectivity requirement, gives real blending (unlike a hard
+        # nearest-bone fallback). Requires bone envelope radii to be widened
+        # from Blender's tiny defaults to actually reach the mesh surface.
+        print("[rig] heat weighting failed broadly (mesh likely has disconnected "
+              "shells); retrying with envelope weighting")
+        for m in [m for m in mesh_obj.modifiers if m.type == "ARMATURE"]:
+            mesh_obj.modifiers.remove(m)
+        for vg in list(mesh_obj.vertex_groups):
+            mesh_obj.vertex_groups.remove(vg)
+        mesh_obj.parent = None
+        set_bone_envelopes(arm_obj, hw)
+        do_parent("ARMATURE_ENVELOPE")
+        unweighted = count_unweighted_vertices(mesh_obj, arm_obj)
+        print(f"[rig] envelope weighting: {total - unweighted}/{total} vertices weighted")
+
+    # Final safety net: any vertex still unweighted (e.g. isolated geometry no
+    # envelope reached) gets a rigid nearest-bone assignment. This also avoids
+    # Blender's glTF exporter (4.0.2) crashing: it hits a 'neutral bone' fallback
+    # path with an AttributeError (add_neutral_bones) whenever any vertex has
+    # zero total bone weight.
+    fix_unweighted_vertices(mesh_obj, arm_obj)
+
+
+def set_bone_envelopes(arm_obj, hw):
+    """Widen bone envelope radius/distance from Blender's tiny defaults so
+    ARMATURE_ENVELOPE weighting actually reaches the mesh surface. Scaled off
+    the character's half-width so it works across mesh scale changes."""
+    radius = hw * 0.35
+    distance = hw * 0.25
+    for b in arm_obj.data.bones:
+        b.head_radius = radius
+        b.tail_radius = radius
+        b.envelope_distance = distance
+
+
+def count_unweighted_vertices(mesh_obj, arm_obj):
+    bone_names = {b.name for b in arm_obj.data.bones}
+    group_index_to_bone = {vg.index for vg in mesh_obj.vertex_groups if vg.name in bone_names}
+    count = 0
+    for v in mesh_obj.data.vertices:
+        total = sum(g.weight for g in v.groups if g.group in group_index_to_bone)
+        if total <= 1e-4:
+            count += 1
+    return count
+
+
+def fix_unweighted_vertices(mesh_obj, arm_obj):
+    """Assign any vertex still left with zero bone weight to its nearest bone
+    (rigid, no blending). Guarantees exporter compatibility even after the
+    heat/envelope attempts above; see skin() for why this matters."""
+    bones = arm_obj.data.bones
+    segments = [(b.name, Vector(b.head_local), Vector(b.tail_local)) for b in bones]
+
+    def closest_bone(co):
+        best_name, best_dist = None, None
+        for name, head, tail in segments:
+            seg = tail - head
+            seg_len2 = seg.length_squared
+            t = 0.0 if seg_len2 < 1e-9 else max(0.0, min(1.0, (co - head).dot(seg) / seg_len2))
+            closest = head + seg * t
+            d = (co - closest).length_squared
+            if best_dist is None or d < best_dist:
+                best_dist, best_name = d, name
+        return best_name
+
+    bone_names = {b.name for b in bones}
+    vg_by_name = {vg.name: vg for vg in mesh_obj.vertex_groups}
+    group_index_to_bone = {vg.index for vg in mesh_obj.vertex_groups if vg.name in bone_names}
+
+    fixed = 0
+    for v in mesh_obj.data.vertices:
+        total = sum(g.weight for g in v.groups if g.group in group_index_to_bone)
+        if total <= 1e-4:
+            name = closest_bone(v.co)
+            vg = vg_by_name.get(name)
+            if vg is None:
+                vg = mesh_obj.vertex_groups.new(name=name)
+                vg_by_name[name] = vg
+                group_index_to_bone.add(vg.index)
+            vg.add([v.index], 1.0, "REPLACE")
+            fixed += 1
+    print(f"[rig] fallback nearest-bone assignment: {fixed} vertices")
 
 
 # --------------------------------------------------------------------------- #
@@ -270,23 +381,63 @@ def add_sockets(arm_obj, bounds):
         empty.empty_display_type = "PLAIN_AXES"
         empty.empty_display_size = 0.05
         bpy.context.collection.objects.link(empty)
-        if bone in arm_obj.data.bones:
-            empty.parent = arm_obj
-            empty.parent_type = "BONE"
-            empty.parent_bone = bone
-            # Set world position after parenting (Blender uses parent bone tail as origin).
-            empty.matrix_world = _translation(loc)
-        else:
+        if bone not in arm_obj.data.bones:
             print(f"[rig] WARNING: bone '{bone}' missing for socket '{name}'")
-            empty.location = loc
+        # Object-parent to the armature (NOT bone-parent): Blender's glTF exporter
+        # (4.0.2) crashes in add_neutral_bones when empties are bone-parented onto
+        # an armature that also has an unweighted bone (our Root). Object-parenting
+        # avoids the crash. The intended attach bone is preserved as a custom
+        # property so downstream tooling can re-parent it to the live bone for
+        # animated attachment (see docs/KnitBit-Base-Spec.md section 4/8).
+        empty.parent = arm_obj
+        empty.parent_type = "OBJECT"
+        empty.matrix_parent_inverse = arm_obj.matrix_world.inverted()
+        empty.location = loc
+        empty["attach_bone"] = bone
         created.append(name)
     print(f"[rig] added {len(created)} sockets")
     return created
 
 
-def _translation(loc):
-    from mathutils import Matrix
-    return Matrix.Translation(loc)
+# --------------------------------------------------------------------------- #
+# Idle animation (rig validation)
+# --------------------------------------------------------------------------- #
+
+def add_idle_animation(arm_obj):
+    """A minimal procedural idle loop (chest sway + counter head nod) purely to
+    exercise the rig end-to-end — proves the skeleton/skin deform without
+    breaking. Not meant as final animation quality."""
+    import math
+
+    scene = bpy.context.scene
+    scene.frame_start = 1
+    scene.frame_end = IDLE_FRAMES
+    scene.render.fps = IDLE_FPS
+
+    bpy.ops.object.select_all(action="DESELECT")
+    arm_obj.select_set(True)
+    bpy.context.view_layer.objects.active = arm_obj
+    bpy.ops.object.mode_set(mode="POSE")
+
+    def kf(bone_name, frame, euler_deg):
+        pb = arm_obj.pose.bones[bone_name]
+        pb.rotation_mode = "XYZ"
+        pb.rotation_euler = tuple(math.radians(d) for d in euler_deg)
+        pb.keyframe_insert(data_path="rotation_euler", frame=frame)
+
+    mid = IDLE_FRAMES // 2
+    kf("Chest", 1, (0, 0, 0))
+    kf("Chest", mid, (2, 0, 0))
+    kf("Chest", IDLE_FRAMES, (0, 0, 0))
+    kf("Head", 1, (0, 0, 0))
+    kf("Head", mid, (-1.5, 0, 0))
+    kf("Head", IDLE_FRAMES, (0, 0, 0))
+
+    bpy.ops.object.mode_set(mode="OBJECT")
+    if arm_obj.animation_data and arm_obj.animation_data.action:
+        arm_obj.animation_data.action.name = "Idle"
+    scene.frame_set(1)
+    print(f"[rig] added idle animation ({IDLE_FRAMES} frames @ {IDLE_FPS}fps)")
 
 
 # --------------------------------------------------------------------------- #
@@ -303,6 +454,7 @@ def export(out_path):
         export_apply=False,
         export_skins=True,
         export_animations=True,
+        export_extras=True,  # preserve custom props (socket attach_bone) as glTF extras
         use_selection=False,
     )
     print(f"[rig] exported: {out_path}")
@@ -313,7 +465,7 @@ def export(out_path):
 # --------------------------------------------------------------------------- #
 
 def main():
-    in_path, out_path = parse_args()
+    in_path, out_path, idle_out_path = parse_args()
     print(f"[rig] input : {in_path}")
     print(f"[rig] output: {out_path}")
     clean_scene()
@@ -321,9 +473,15 @@ def main():
     mn, mx = mesh_bounds(mesh_obj)
     print(f"[rig] bounds min={tuple(round(v,3) for v in mn)} max={tuple(round(v,3) for v in mx)}")
     arm_obj, bounds = build_armature(mn, mx)
-    skin(mesh_obj, arm_obj)
+    hw = (mx.x - mn.x) / 2.0
+    skin(mesh_obj, arm_obj, hw)
     add_sockets(arm_obj, bounds)
     export(out_path)
+
+    add_idle_animation(arm_obj)
+    export(idle_out_path)
+    print(f"[rig] idle output: {idle_out_path}")
+
     print("[rig] done. Verify joint deformation in Blender; nudge LANDMARKS/HW if needed.")
 
 
