@@ -18,8 +18,8 @@ Every KnitBit, regardless of theme, obeys these:
 | --- | --- |
 | Body type | Short chibi humanoid robot |
 | Height feel | Roughly 4 ft tall (toy-like proportions) |
-| Head | Oversized rounded monitor / helmet head |
-| Face | Black pixel-display screen |
+| Head | Oversized rounded monitor / helmet head — **the head IS the helmet**; there is no separate helmet, and nothing helmet-shaped is ever attached on top of it |
+| Face | Black pixel-display screen — the animated faceplate is the helmet-head's front |
 | Expression | Bright pixel eyes + simple pixel mouth |
 | Body | Compact armored torso, chunky boots, sturdy limbs |
 | Material | Gunmetal / dark charcoal plated shell |
@@ -94,7 +94,7 @@ them in Blender after rigging** (see §8).
 
 | Socket | Parent bone | Used for |
 | --- | --- | --- |
-| `head_top_center` | Head | helmet top panels, patches, small hats |
+| `head_top_center` | Head | **low-profile surface details only** — thin panels, patches, small toppers. Never helmet- or dome-shaped geometry (the head IS the helmet, see §1) |
 | `head_left_antenna` | Head | left antenna |
 | `head_right_antenna` | Head | right antenna |
 | `head_left_side` | Head | headphone left cup, ear modules |
@@ -173,15 +173,31 @@ structurally (parent/child graph parsed from the glTF) and visually (rendered PN
 Antenna, helmet panel, chest icon, and backpack all placed and scaled well; the backpack
 in particular is correctly hidden from the front and reads clearly on the back in profile.
 
-**Known issue:** the belt charm's source photo included a hanging chain link, which
-`image_to_3d` reconstructed as small disconnected geometry near the main gear body —
-visible as a stray floating fragment in the render. Tried and reverted an automatic "keep
-largest connected mesh island" cleanup (`bpy.ops.mesh.separate(type='LOOSE')`): these
+**Known issue 1 (belt charm):** the belt charm's source photo included a hanging chain
+link, which `image_to_3d` reconstructed as small disconnected geometry near the main gear
+body — visible as a stray floating fragment in the render. Tried and reverted an automatic
+"keep largest connected mesh island" cleanup (`bpy.ops.mesh.separate(type='LOOSE')`): these
 meshes are naturally composed of hundreds to thousands of disconnected micro-patches
 (normal for dense hard-surface reconstructions, not just this one prop), so "largest
 island" cut real geometry off *every* prop rather than just removing the stray chain.
-**Takeaway for future concept art:** keep prop reference photos free of incidental
-dangling/chained elements — the reconstruction will include whatever's in frame.
+
+**Known issue 2 (helmet panel — "helmet on top of the helmet," fixed):** the original
+"reinforced helmet top panel" concept prompt drifted into a **complete helmet dome**, and
+`image_to_3d` faithfully reconstructed it; combined with an oversized fit scale (0.34 of
+character height) and center-on-socket mounting at the head's apex, the pilot preview
+showed a second helmet stacked on the head — violating the §1 rule that **the head IS the
+helmet** (there is no separate helmet; the animated faceplate is its front). Fixed by:
+regenerating the concept as an explicitly flat, thin access-panel plate (with "NOT a
+helmet, NOT a dome" anti-drift language), reconverting, shrinking the fit to 0.15, and
+adding a per-prop surface-mount offset in `tools/fit_traits.py` so the plate hugs the
+crown. §1 and the §4 socket map now codify the rule.
+
+**Pipeline takeaways for future concept art:**
+- Keep prop reference photos free of incidental dangling/chained elements — the
+  reconstruction includes whatever's in frame.
+- Image models drift toward the *object category* in the prompt ("helmet panel" → a
+  helmet). Describe the wrong interpretations explicitly ("NOT a dome...") and **visually
+  verify every concept image before paying for 3D conversion**.
 
 **Individual pilot prop assets:** `assets/3d/knitbit_base/traits/pilot/{antenna,
 helmet_panel, chest_icon, belt_charm, backpack}.glb` — textured, unrigged, ready to

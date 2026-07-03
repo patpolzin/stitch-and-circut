@@ -55,14 +55,23 @@ CHAR_HEIGHT = 1.911
 HW = 0.735
 
 # name -> (source glb, socket empty name, target size as fraction of CHAR_HEIGHT,
-#          rotation hint in degrees (x, y, z), mirror-x)
+#          rotation hint in degrees (x, y, z), mirror-x,
+#          local offset (x, y, z) in socket space as fractions of CHAR_HEIGHT)
+# The offset surface-mounts props whose socket sits at the mesh surface apex —
+# props are scaled about their center, so without it half the prop floats
+# outside the body (the "helmet on top of the helmet" bug on head_top_center).
+# DESIGN RULE (user-confirmed): the oversized monitor head IS the helmet, with
+# the faceplate as its front. head_top_center carries only thin low-profile
+# surface details — never helmet/dome-shaped geometry.
 PROPS = {
-    "antenna_left": ("antenna.glb", "socket_head_left_antenna", 0.10, (0, 0, 0), False),
-    "antenna_right": ("antenna.glb", "socket_head_right_antenna", 0.10, (0, 0, 0), True),
-    "helmet_panel": ("helmet_panel.glb", "socket_head_top_center", 0.34, (0, 0, 0), False),
-    "chest_icon": ("chest_icon.glb", "socket_chest_center", 0.11, (90, 0, 0), False),
-    "belt_charm": ("belt_charm.glb", "socket_belt_front", 0.09, (0, 0, 0), False),
-    "backpack": ("backpack.glb", "socket_back_center", 0.42, (0, 0, 180), False),
+    "antenna_left": ("antenna.glb", "socket_head_left_antenna", 0.10, (0, 0, 0), False, (0, 0, 0)),
+    "antenna_right": ("antenna.glb", "socket_head_right_antenna", 0.10, (0, 0, 0), True, (0, 0, 0)),
+    # Flat access-panel plate lying on the head crown: shrink to a modest plate,
+    # sink slightly so it hugs the (curved) crown instead of hovering at the apex.
+    "helmet_panel": ("helmet_panel.glb", "socket_head_top_center", 0.15, (0, 0, 0), False, (0, 0, -0.015)),
+    "chest_icon": ("chest_icon.glb", "socket_chest_center", 0.11, (90, 0, 0), False, (0, 0, 0)),
+    "belt_charm": ("belt_charm.glb", "socket_belt_front", 0.09, (0, 0, 0), False, (0, 0, 0)),
+    "backpack": ("backpack.glb", "socket_back_center", 0.42, (0, 0, 180), False, (0, 0, 0)),
 }
 
 
@@ -96,7 +105,7 @@ def longest_dimension(obj):
     return max(max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs))
 
 
-def fit_prop(prop_name, filename, socket_name, target_frac, rot_deg, mirror_x):
+def fit_prop(prop_name, filename, socket_name, target_frac, rot_deg, mirror_x, offset_frac):
     socket = find_socket(socket_name)
     if socket is None:
         return None
@@ -130,7 +139,7 @@ def fit_prop(prop_name, filename, socket_name, target_frac, rot_deg, mirror_x):
     # Setting matrix_parent_inverse = socket.matrix_world.inverted() (the usual
     # "parent without moving the child" idiom) would cancel that out and drop
     # every prop at the scene's absolute origin instead of at its socket.
-    prop.location = (0, 0, 0)
+    prop.location = tuple(f * CHAR_HEIGHT for f in offset_frac)
     prop.rotation_euler = tuple(math.radians(d) for d in rot_deg)
     prop.scale = (scale, abs(scale), abs(scale))
     bpy.context.view_layer.update()
@@ -220,8 +229,8 @@ def main():
     import_glb(BASE_GLB)
 
     fitted = []
-    for prop_name, (filename, socket_name, target_frac, rot_deg, mirror_x) in PROPS.items():
-        result = fit_prop(prop_name, filename, socket_name, target_frac, rot_deg, mirror_x)
+    for prop_name, (filename, socket_name, target_frac, rot_deg, mirror_x, offset_frac) in PROPS.items():
+        result = fit_prop(prop_name, filename, socket_name, target_frac, rot_deg, mirror_x, offset_frac)
         if result:
             fitted.append(prop_name)
     print(f"[fit] fitted {len(fitted)}/{len(PROPS)} props: {fitted}")
