@@ -66,9 +66,11 @@ HW = 0.735
 PROPS = {
     "antenna_left": ("antenna.glb", "socket_head_left_antenna", 0.10, (0, 0, 0), False, (0, 0, 0)),
     "antenna_right": ("antenna.glb", "socket_head_right_antenna", 0.10, (0, 0, 0), True, (0, 0, 0)),
-    # Flat access-panel plate lying on the head crown: shrink to a modest plate,
-    # sink slightly so it hugs the (curved) crown instead of hovering at the apex.
-    "helmet_panel": ("helmet_panel.glb", "socket_head_top_center", 0.15, (0, 0, 0), False, (0, 0, -0.015)),
+    # Flat access-panel plate lying on the head crown: modest plate size, small
+    # sink so the plate edges bite into the curved crown instead of hovering.
+    # (socket_head_top_center itself now sits at the sampled TRUE crown height —
+    # see crown_height() in rig_knitbit.py — not the bbox top/antenna tips.)
+    "helmet_panel": ("helmet_panel.glb", "socket_head_top_center", 0.15, (0, 0, 0), False, (0, 0, -0.01)),
     "chest_icon": ("chest_icon.glb", "socket_chest_center", 0.11, (90, 0, 0), False, (0, 0, 0)),
     "belt_charm": ("belt_charm.glb", "socket_belt_front", 0.09, (0, 0, 0), False, (0, 0, 0)),
     "backpack": ("backpack.glb", "socket_back_center", 0.42, (0, 0, 180), False, (0, 0, 0)),

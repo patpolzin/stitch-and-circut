@@ -344,7 +344,33 @@ def fix_unweighted_vertices(mesh_obj, arm_obj):
 # Sockets (spec section 4)
 # --------------------------------------------------------------------------- #
 
-def add_sockets(arm_obj, bounds):
+def crown_height(mesh_obj, mn, mx):
+    """True helmet-crown apex: max z of vertices near the head's center column.
+    The whole-mesh bounding-box top (mx.z) is the tip of the baked-in antenna
+    balls, ~0.1 above the actual helmet surface — placing head_top_center
+    there floats every top-mounted prop in mid-air (the follow-on bug behind
+    the "helmet on top of the helmet" report). Antenna nubs sit at ~±0.45·hw
+    in x, so sampling within a small central radius avoids them."""
+    hw = (mx.x - mn.x) / 2.0
+    cx = (mn.x + mx.x) / 2.0
+    cy = (mn.y + mx.y) / 2.0
+    radius = hw * 0.2
+    mw = mesh_obj.matrix_world
+    best = None
+    for v in mesh_obj.data.vertices:
+        co = mw @ v.co
+        if abs(co.x - cx) < radius and abs(co.y - cy) < radius:
+            if best is None or co.z > best:
+                best = co.z
+    if best is None:
+        print("[rig] WARNING: crown sampling found no central vertices; using bbox top")
+        return mx.z
+    print(f"[rig] crown height: {best:.3f} (bbox top {mx.z:.3f}, "
+          f"delta {mx.z - best:.3f} = baked antenna tips)")
+    return best
+
+
+def add_sockets(arm_obj, bounds, mesh_obj):
     mn, mx, front_y = bounds
     height = mx.z - mn.z
     hw = (mx.x - mn.x) / 2.0
@@ -352,13 +378,14 @@ def add_sockets(arm_obj, bounds):
     cx = (mn.x + mx.x) / 2.0
     cy = (mn.y + mx.y) / 2.0
     back_y = cy + depth * 0.45
+    crown_z = crown_height(mesh_obj, mn, mx)
 
     def z(t):
         return mn.z + t * height
 
     # name -> (bone, world_location)
     sockets = {
-        "head_top_center":   ("Head", Vector((cx, cy, mx.z))),
+        "head_top_center":   ("Head", Vector((cx, cy, crown_z))),
         "head_left_antenna": ("Head", Vector((cx + hw * 0.45, cy, z(0.95)))),
         "head_right_antenna":("Head", Vector((cx - hw * 0.45, cy, z(0.95)))),
         "head_left_side":    ("Head", Vector((cx + hw * 0.88, cy, z(0.70)))),
@@ -475,7 +502,7 @@ def main():
     arm_obj, bounds = build_armature(mn, mx)
     hw = (mx.x - mn.x) / 2.0
     skin(mesh_obj, arm_obj, hw)
-    add_sockets(arm_obj, bounds)
+    add_sockets(arm_obj, bounds, mesh_obj)
     export(out_path)
 
     add_idle_animation(arm_obj)
