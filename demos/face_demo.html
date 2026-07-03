@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KnitBit Face — crossfade + idle loop demo</title>
+<style>
+  body { background:#1c1f22; color:#9fe8a8; font-family:monospace; display:flex;
+         flex-direction:column; align-items:center; gap:16px; padding:24px; }
+  canvas { background:#000; border:6px solid #2a3439; border-radius:24px; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; max-width:560px; justify-content:center; }
+  button { background:#2a3439; color:#9fe8a8; border:1px solid #46555c; border-radius:6px;
+           padding:6px 10px; font-family:monospace; cursor:pointer; }
+  button:hover { background:#39464e; }
+  #status { font-size:12px; opacity:.8; }
+</style>
+</head>
+<body>
+<h3>KnitBit face — crossfade + idle loop</h3>
+<canvas id="face" width="512" height="512"></canvas>
+<div class="row" id="buttons"></div>
+<div id="status"></div>
+<script>
+// Mirrors game/lib/characters/bit_face.dart — keep the constants in sync.
+const FADE_S = 0.22;
+const PULSE_PERIOD = 3.2, PULSE_DEPTH = 0.06;
+const SWEEP_INTERVAL = 4.5, SWEEP_DURATION = 0.9, SWEEP_BAND_FRAC = 0.10;
+const BLINK_BASE = 4.0, BLINK_DUR = 0.07, BLINK_DIM = 0.25;
+const CELL = 512, COLS = 5;
+const CELLS = { idle:[0,0], happy:[1,0], thinking:[2,0], scared:[3,0], effort:[4,0],
+  starEyes:[0,1], confused:[1,1], lowBattery:[2,1], startled:[3,1], relieved:[4,1] };
+
+const canvas = document.getElementById('face');
+const ctx = canvas.getContext('2d');
+const sheet = new Image();
+sheet.src = '../assets/2d/knitbit_face/knitbit_face_sheet.png';
+
+let clock = 0, current = 'idle', previous = null, fadeT = 1.0;
+let blinkCycle = 0, nextBlinkAt = BLINK_BASE;
+
+function setExpression(name) {
+  if (name === current) return;
+  previous = current; current = name; fadeT = 0.0;
+}
+
+function tick(dt) {
+  clock += dt;
+  if (fadeT < 1.0) {
+    fadeT = Math.min(1.0, fadeT + dt / FADE_S);
+    if (fadeT >= 1.0) previous = null;
+  }
+  if (clock >= nextBlinkAt + BLINK_DUR) {
+    blinkCycle++;
+    nextBlinkAt = clock + BLINK_BASE + Math.sin(blinkCycle * 12.9898) * 0.8;
+  }
+}
+
+function idleOpacity() {
+  const pulse = 1.0 - PULSE_DEPTH * (0.5 + 0.5 * Math.sin(2 * Math.PI * clock / PULSE_PERIOD));
+  const blinking = clock >= nextBlinkAt && clock < nextBlinkAt + BLINK_DUR;
+  return blinking ? BLINK_DIM : pulse;
+}
+
+function drawCell(name, alpha) {
+  const [c, r] = CELLS[name];
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(sheet, c * CELL, r * CELL, CELL, CELL, 0, 0, canvas.width, canvas.height);
+}
+
+function render() {
+  ctx.globalAlpha = 1; ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const idle = idleOpacity();
+  if (previous && fadeT < 1.0) {
+    drawCell(previous, (1 - fadeT) * idle);
+    drawCell(current, fadeT * idle);
+  } else {
+    drawCell(current, idle);
+  }
+  ctx.globalAlpha = 1;
+  const phase = clock % SWEEP_INTERVAL;
+  if (phase < SWEEP_DURATION) {
+    const t = phase / SWEEP_DURATION;
+    const bandH = canvas.height * SWEEP_BAND_FRAC;
+    const y = -bandH + t * (canvas.height + 2 * bandH);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(0, y, canvas.width, bandH);
+  }
+  document.getElementById('status').textContent =
+    `expr=${current} fadeT=${fadeT.toFixed(2)} clock=${clock.toFixed(2)}s idleOpacity=${idle.toFixed(3)}`;
+}
+
+for (const name of Object.keys(CELLS)) {
+  const b = document.createElement('button');
+  b.textContent = name;
+  b.onclick = () => setExpression(name);
+  document.getElementById('buttons').appendChild(b);
+}
+
+const manual = location.hash === '#manual';
+if (manual) {
+  // Deterministic stepping for automated screenshot verification:
+  //   window.advance(ms) advances the animation clock and re-renders.
+  window.advance = (ms) => { tick(ms / 1000); render(); };
+  window.setExpressionManual = setExpression;
+  sheet.onload = () => render();
+} else {
+  let last = performance.now();
+  function loop(now) {
+    tick((now - last) / 1000); last = now;
+    render();
+    requestAnimationFrame(loop);
+  }
+  sheet.onload = () => requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>

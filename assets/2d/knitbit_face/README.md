@@ -74,13 +74,37 @@ expressions), they can be added with the same prompt template.
   the character reference); the Element is validated separately with a full-character
   test render.
 
+## Crossfade + idle loop ✅
+
+Implemented twice from one set of shared constants — a production Flame component and a
+browser demo used for automated visual verification:
+
+- **`game/lib/characters/bit_face.dart`** — `BitFace` Flame component. Loads the sheet
+  (copied to `game/assets/images/`), maps grid cells to the `BitExpression` enum, and
+  provides:
+  - `setExpression(expr)` — 220ms opacity crossfade between outgoing/incoming expressions
+    (reads as a smooth screen redraw);
+  - idle glow pulse (~3.2s breath between 94–100% opacity);
+  - scanline sweep (a faint dark band sweeps down every 4.5s, like a CRT refresh);
+  - blink flicker (the display dips to 25% for 70ms at a jittered ~4s interval — works on
+    every expression with no per-expression blink frames).
+- **`demos/face_demo.html`** — self-contained canvas demo of the same system (same
+  constants, kept in sync — see header comment). Open in a browser for the live loop, or
+  load with `#manual` for deterministic stepping via `window.advance(ms)`.
+- **Verified** via Playwright/Chromium screenshots of the manual-stepped demo: crossfade
+  midpoint (both expressions blended at half opacity), scanline mid-sweep, blink-flicker
+  dip, and settled states.
+
+Note: `BitFace` is not yet wired into `BitCharacter` — the character still paints its
+procedural vector face. The swap is the "game wiring" pass below.
+
 ## Next steps (after review)
 
 1. ~~Decide the authoritative expression list~~ ✅ resolved: 10-value enum (see above).
 2. ~~Generate the remaining expressions~~ ✅ all 10 generated.
 3. ~~Normalize into an engine-ready sprite sheet~~ ✅ done (see normalized set above).
-4. Build transitions: crossfade first; micro-animation strips only for a few signature
-   expressions per theme later.
-5. Idle loop (blink/scanline shimmer) + audio-amplitude-driven talk-cycle strip.
-6. Wire the sheet into the game (`bit_character.dart`: swap the procedural `_draw*Face`
-   painting for sprite rendering from `knitbit_face_sheet.png` + manifest) — its own pass.
+4. ~~Crossfade transitions + idle loop~~ ✅ done (`BitFace` + demo, above). Micro-animation
+   strips for signature theme expressions remain a later nice-to-have.
+5. Audio-amplitude-driven talk-cycle strip.
+6. Wire `BitFace` into the game (`bit_character.dart`: swap the procedural `_draw*Face`
+   painting for the `BitFace` component) — its own pass.
