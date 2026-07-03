@@ -1,7 +1,8 @@
-import 'dart:math' as math;
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+
+import 'bit_face.dart';
 
 /// Bit's facial expressions displayed on his CRT screen
 enum BitExpression {
@@ -39,10 +40,11 @@ class BitCharacter extends PositionComponent with HasGameRef, CollisionCallbacks
   bool isSwinging = false;
   int moveDirection = 0; // -1 left, 0 none, 1 right
 
-  // Expression state
+  // Expression state. The visible face is the sprite-sheet-driven [BitFace]
+  // child (crossfade + idle loop); this class keeps the game-logic state
+  // machine (current expression, auto-return-to-idle) and forwards changes.
+  late final BitFace face;
   BitExpression _expression = BitExpression.idle;
-  double _blinkTimer = 0;
-  bool _isBlinking = false;
   double _expressionTimer = 0;
 
   // Colors from design doc / KnitBit Base Spec (docs/KnitBit-Base-Spec.md).
@@ -67,6 +69,13 @@ class BitCharacter extends PositionComponent with HasGameRef, CollisionCallbacks
       size: Vector2(60, 100),
       position: Vector2(10, 10),
     ));
+
+    // Animated pixel-display face over the screen area of the CRT head
+    // (head is drawn at (10,0,60,50), screen inset at (15,5,50,40)).
+    face = BitFace(size: Vector2(50, 40), position: Vector2(15, 5));
+    add(face);
+    // Catch up on any expression set before this component loaded.
+    face.setExpression(_expression, fade: Duration.zero);
   }
 
   @override
@@ -97,25 +106,12 @@ class BitCharacter extends PositionComponent with HasGameRef, CollisionCallbacks
   }
 
   void _updateExpression(double dt) {
-    // Handle blinking for idle expression
-    if (_expression == BitExpression.idle) {
-      _blinkTimer += dt;
-      if (_blinkTimer > 3.0 && !_isBlinking) {
-        _isBlinking = true;
-        _blinkTimer = 0;
-      }
-      if (_isBlinking && _blinkTimer > 0.15) {
-        _isBlinking = false;
-        _blinkTimer = 0;
-      }
-    }
-
-    // Auto-return to idle after certain expressions
+    // Auto-return to idle after certain expressions. (Blinking/idle life is
+    // handled inside BitFace — glow pulse, scanline sweep, blink flicker.)
     if (_expression == BitExpression.startled || _expression == BitExpression.relieved) {
       _expressionTimer += dt;
       if (_expressionTimer > 1.5) {
-        _expression = BitExpression.idle;
-        _expressionTimer = 0;
+        setExpression(BitExpression.idle);
       }
     }
   }
@@ -124,10 +120,10 @@ class BitCharacter extends PositionComponent with HasGameRef, CollisionCallbacks
   void render(Canvas canvas) {
     super.render(canvas);
 
-    // Draw Bit's body
+    // Draw Bit's body. The face is NOT painted here — the BitFace child
+    // component renders the sprite-sheet expression over the screen area.
     _drawBody(canvas);
     _drawHead(canvas);
-    _drawFace(canvas);
     _drawArms(canvas);
     _drawLegs(canvas);
   }
@@ -173,169 +169,6 @@ class BitCharacter extends PositionComponent with HasGameRef, CollisionCallbacks
       const Radius.circular(4),
     );
     canvas.drawRRect(screenRect, screenPaint);
-  }
-
-  void _drawFace(Canvas canvas) {
-    final facePaint = Paint()..color = neonGreen;
-
-    // Draw based on current expression
-    switch (_expression) {
-      case BitExpression.idle:
-        _drawIdleFace(canvas, facePaint);
-        break;
-      case BitExpression.happy:
-        _drawHappyFace(canvas, facePaint);
-        break;
-      case BitExpression.thinking:
-        _drawThinkingFace(canvas, facePaint);
-        break;
-      case BitExpression.scared:
-        _drawScaredFace(canvas, facePaint);
-        break;
-      case BitExpression.effort:
-        _drawEffortFace(canvas, facePaint);
-        break;
-      case BitExpression.starEyes:
-        _drawStarEyesFace(canvas, facePaint);
-        break;
-      case BitExpression.confused:
-        _drawConfusedFace(canvas, facePaint);
-        break;
-      case BitExpression.lowBattery:
-        _drawLowBatteryFace(canvas, facePaint);
-        break;
-      case BitExpression.startled:
-        _drawStartledFace(canvas, facePaint);
-        break;
-      case BitExpression.relieved:
-        _drawRelievedFace(canvas, facePaint);
-        break;
-    }
-  }
-
-  void _drawIdleFace(Canvas canvas, Paint paint) {
-    // Pixel eyes (4x4 squares)
-    final eyeSize = _isBlinking ? 2.0 : 6.0;
-    canvas.drawRect(Rect.fromLTWH(25, 15, 8, eyeSize), paint);
-    canvas.drawRect(Rect.fromLTWH(47, 15, 8, eyeSize), paint);
-
-    // Smile (pixel arc)
-    canvas.drawRect(Rect.fromLTWH(30, 32, 4, 4), paint);
-    canvas.drawRect(Rect.fromLTWH(34, 36, 12, 4), paint);
-    canvas.drawRect(Rect.fromLTWH(46, 32, 4, 4), paint);
-  }
-
-  void _drawHappyFace(Canvas canvas, Paint paint) {
-    // Big happy eyes
-    canvas.drawRect(Rect.fromLTWH(25, 12, 10, 10), paint);
-    canvas.drawRect(Rect.fromLTWH(45, 12, 10, 10), paint);
-
-    // Big grin
-    canvas.drawRect(Rect.fromLTWH(25, 30, 4, 4), paint);
-    canvas.drawRect(Rect.fromLTWH(29, 34, 22, 6), paint);
-    canvas.drawRect(Rect.fromLTWH(51, 30, 4, 4), paint);
-  }
-
-  void _drawThinkingFace(Canvas canvas, Paint paint) {
-    // Looking up eyes
-    canvas.drawRect(Rect.fromLTWH(25, 10, 8, 6), paint);
-    canvas.drawRect(Rect.fromLTWH(47, 10, 8, 6), paint);
-
-    // Thinking dots
-    canvas.drawCircle(const Offset(35, 36), 3, paint);
-    canvas.drawCircle(const Offset(45, 36), 3, paint);
-  }
-
-  void _drawScaredFace(Canvas canvas, Paint paint) {
-    // Wide eyes
-    canvas.drawRect(Rect.fromLTWH(22, 12, 12, 12), paint);
-    canvas.drawRect(Rect.fromLTWH(46, 12, 12, 12), paint);
-
-    // O mouth
-    canvas.drawRect(Rect.fromLTWH(35, 30, 10, 10), paint);
-    // Cut out center for O shape
-    final bgPaint = Paint()..color = screenColor;
-    canvas.drawRect(Rect.fromLTWH(38, 33, 4, 4), bgPaint);
-  }
-
-  void _drawEffortFace(Canvas canvas, Paint paint) {
-    // Squinting eyes
-    canvas.drawRect(Rect.fromLTWH(25, 16, 10, 4), paint);
-    canvas.drawRect(Rect.fromLTWH(45, 16, 10, 4), paint);
-
-    // Gritting teeth pattern
-    canvas.drawRect(Rect.fromLTWH(28, 32, 6, 8), paint);
-    canvas.drawRect(Rect.fromLTWH(37, 32, 6, 8), paint);
-    canvas.drawRect(Rect.fromLTWH(46, 32, 6, 8), paint);
-  }
-
-  void _drawStarEyesFace(Canvas canvas, Paint paint) {
-    // Star eyes - draw simple stars
-    _drawStar(canvas, const Offset(29, 16), 8, paint);
-    _drawStar(canvas, const Offset(51, 16), 8, paint);
-
-    // Big happy smile
-    canvas.drawRect(Rect.fromLTWH(25, 32, 4, 4), paint);
-    canvas.drawRect(Rect.fromLTWH(29, 36, 22, 4), paint);
-    canvas.drawRect(Rect.fromLTWH(51, 32, 4, 4), paint);
-  }
-
-  void _drawStar(Canvas canvas, Offset center, double size, Paint paint) {
-    // Simple 4-point pixel star
-    canvas.drawRect(
-      Rect.fromCenter(center: center, width: size, height: size / 3),
-      paint,
-    );
-    canvas.drawRect(
-      Rect.fromCenter(center: center, width: size / 3, height: size),
-      paint,
-    );
-  }
-
-  void _drawConfusedFace(Canvas canvas, Paint paint) {
-    // Normal eyes
-    canvas.drawRect(Rect.fromLTWH(25, 14, 8, 8), paint);
-    canvas.drawRect(Rect.fromLTWH(47, 14, 8, 8), paint);
-
-    // Loading spinner (simple rotation)
-    final spinAngle = (_blinkTimer * 4) % (2 * math.pi);
-    canvas.save();
-    canvas.translate(40, 36);
-    canvas.rotate(spinAngle);
-    canvas.drawRect(Rect.fromLTWH(-8, -2, 16, 4), paint);
-    canvas.drawRect(Rect.fromLTWH(-2, -8, 4, 16), paint);
-    canvas.restore();
-  }
-
-  void _drawLowBatteryFace(Canvas canvas, Paint paint) {
-    final dimPaint = Paint()..color = neonGreen.withOpacity(0.5);
-
-    // Droopy eyes
-    canvas.drawRect(Rect.fromLTWH(25, 18, 8, 4), dimPaint);
-    canvas.drawRect(Rect.fromLTWH(47, 18, 8, 4), dimPaint);
-
-    // Flat mouth
-    canvas.drawRect(Rect.fromLTWH(30, 34, 20, 4), dimPaint);
-  }
-
-  void _drawStartledFace(Canvas canvas, Paint paint) {
-    // Wide surprised eyes
-    canvas.drawRect(Rect.fromLTWH(22, 10, 14, 14), paint);
-    canvas.drawRect(Rect.fromLTWH(44, 10, 14, 14), paint);
-
-    // Small o mouth
-    canvas.drawCircle(const Offset(40, 36), 5, paint);
-    final bgPaint = Paint()..color = screenColor;
-    canvas.drawCircle(const Offset(40, 36), 2, bgPaint);
-  }
-
-  void _drawRelievedFace(Canvas canvas, Paint paint) {
-    // Closed happy eyes (arcs)
-    canvas.drawRect(Rect.fromLTWH(25, 18, 10, 3), paint);
-    canvas.drawRect(Rect.fromLTWH(45, 18, 10, 3), paint);
-
-    // Relieved smile
-    canvas.drawRect(Rect.fromLTWH(32, 34, 16, 4), paint);
   }
 
   void _drawArms(Canvas canvas) {
@@ -387,10 +220,13 @@ class BitCharacter extends PositionComponent with HasGameRef, CollisionCallbacks
     );
   }
 
-  /// Set Bit's facial expression
+  /// Set Bit's facial expression (crossfades on the display via [BitFace])
   void setExpression(BitExpression expression) {
     _expression = expression;
     _expressionTimer = 0;
+    if (isLoaded) {
+      face.setExpression(expression);
+    }
   }
 
   /// Get Bit's current expression
