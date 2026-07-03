@@ -29,12 +29,27 @@ style on black. These are review-resolution source images — for engine use the
 cropping to the screen area, background removal/normalization, and downscaling to a
 consistent sprite sheet (deliberately deferred until the style is approved).
 
-Known minor deviations from the enum's drawn designs (flag for the sprite-sheet
-normalization pass): `expression_relieved.png` added a decorative rounded-square border
-ring not present in the in-game design; `expression_effort.png`'s squint reads as angled
-blocks rather than flat horizontal bars; faceplate framing/zoom varies noticeably across
-the set (some fill the frame, some sit small in it) — normalization will crop all to a
-consistent screen region.
+Known minor deviations from the enum's drawn designs — **resolved by the normalization
+pass**: `expression_relieved.png` was regenerated without its off-design border ring;
+the framing/zoom variance is eliminated by glyph-detection cropping (below).
+(`expression_effort.png`'s angled-block squint remains as a minor stylistic take — kept.)
+
+## Engine-ready normalized set ✅
+
+Produced by `tools/normalize_face_sprites.py` (pure PIL — detects the green-glow glyphs
+via relative channel dominance so `lowBattery`'s intentional dimness survives, crops to
+the glyph bounding box, masks away bezel reflections, scales to a uniform content box,
+composites centered on pure black — the faceplate is a black screen, so black is the
+correct paintable base):
+
+| Path | What |
+| --- | --- |
+| `normalized/<name>.png` | One 512×512 cell per expression, named by `BitExpression` value |
+| `knitbit_face_sheet.png` | Packed 5×2 sprite sheet (2560×1024) |
+| `knitbit_face_sheet.json` | Manifest: expression name → pixel rect / grid cell |
+| `normalized_contact_sheet.png` | Labeled review montage of all 10 cells |
+
+Re-run any time a source sprite changes: `python3 tools/normalize_face_sprites.py`
 
 ## Expression list decision (resolved by default)
 
@@ -63,8 +78,9 @@ expressions), they can be added with the same prompt template.
 
 1. ~~Decide the authoritative expression list~~ ✅ resolved: 10-value enum (see above).
 2. ~~Generate the remaining expressions~~ ✅ all 10 generated.
-3. Normalize into an engine-ready sprite sheet (consistent crop/size/alpha — also fixes
-   the framing variance and the `relieved` border-ring deviation noted above).
+3. ~~Normalize into an engine-ready sprite sheet~~ ✅ done (see normalized set above).
 4. Build transitions: crossfade first; micro-animation strips only for a few signature
    expressions per theme later.
 5. Idle loop (blink/scanline shimmer) + audio-amplitude-driven talk-cycle strip.
+6. Wire the sheet into the game (`bit_character.dart`: swap the procedural `_draw*Face`
+   painting for sprite rendering from `knitbit_face_sheet.png` + manifest) — its own pass.
