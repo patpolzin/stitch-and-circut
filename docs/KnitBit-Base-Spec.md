@@ -192,12 +192,27 @@ helmet, NOT a dome" anti-drift language), reconverting, shrinking the fit to 0.1
 adding a per-prop surface-mount offset in `tools/fit_traits.py` so the plate hugs the
 crown. §1 and the §4 socket map now codify the rule.
 
+**Known issue 3 (chest badge + belt charm floating off the body, fixed):** the same
+bbox-fraction placement bug as issue 2, on the front axis. `chest_center`, `belt_front`,
+`faceplate`, and the boot-front sockets were placed at fractions of the whole-mesh
+bounding-box front — but the bbox front belongs to the head/boot extremes, not the local
+torso surface, so the star badge floated 0.095 and the gear charm 0.135 in front of the
+body. Fixed by generalizing the crown sampler into `surface_extreme()` in
+`tools/rig_knitbit.py`: every surface-mounted socket now samples the actual mesh surface
+near its own position (crown, faceplate, chest, belt front/sides, boot fronts). The belt
+*side* sockets needed one extra guard — the A-pose hands hang at hip height, so the side
+sampling caps its x-range at 0.5·half-width to find the hip flank (±0.23) instead of the
+hand (±0.73).
+
 **Pipeline takeaways for future concept art:**
 - Keep prop reference photos free of incidental dangling/chained elements — the
   reconstruction includes whatever's in frame.
 - Image models drift toward the *object category* in the prompt ("helmet panel" → a
   helmet). Describe the wrong interpretations explicitly ("NOT a dome...") and **visually
   verify every concept image before paying for 3D conversion**.
+- **Never place surface-mounted sockets at bounding-box fractions** — sample the mesh
+  surface local to the socket (see `surface_extreme()`); bbox extremes belong to whatever
+  protrudes furthest, not the mounting surface.
 
 **Individual pilot prop assets:** `assets/3d/knitbit_base/traits/pilot/{antenna,
 helmet_panel, chest_icon, belt_charm, backpack}.glb` — textured, unrigged, ready to

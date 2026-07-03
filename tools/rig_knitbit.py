@@ -344,29 +344,36 @@ def fix_unweighted_vertices(mesh_obj, arm_obj):
 # Sockets (spec section 4)
 # --------------------------------------------------------------------------- #
 
-def crown_height(mesh_obj, mn, mx):
-    """True helmet-crown apex: max z of vertices near the head's center column.
-    The whole-mesh bounding-box top (mx.z) is the tip of the baked-in antenna
-    balls, ~0.1 above the actual helmet surface — placing head_top_center
-    there floats every top-mounted prop in mid-air (the follow-on bug behind
-    the "helmet on top of the helmet" report). Antenna nubs sit at ~±0.45·hw
-    in x, so sampling within a small central radius avoids them."""
-    hw = (mx.x - mn.x) / 2.0
-    cx = (mn.x + mx.x) / 2.0
-    cy = (mn.y + mx.y) / 2.0
-    radius = hw * 0.2
+def surface_extreme(mesh_obj, axis, direction, windows, fallback, label):
+    """Actual mesh-surface coordinate for a surface-mounted socket: the extreme
+    vertex coordinate along `axis` (0=x, 1=y, 2=z) in `direction` (+1/-1),
+    restricted to vertices inside `windows` ({axis_index: (center, half_width)}).
+
+    Placing sockets at fractions of the whole-mesh bounding box is wrong for
+    surface mounts: the bbox extremes belong to whatever sticks out furthest
+    (antenna tips set the top, head/boot extremes set the front), not the local
+    body surface — which floated the top panel above the head and the chest
+    badge / belt charm off the torso front. Sampling the mesh near each
+    socket's own position finds the real surface."""
     mw = mesh_obj.matrix_world
     best = None
     for v in mesh_obj.data.vertices:
         co = mw @ v.co
-        if abs(co.x - cx) < radius and abs(co.y - cy) < radius:
-            if best is None or co.z > best:
-                best = co.z
+        ok = True
+        for ax, (center, half) in windows.items():
+            if abs(co[ax] - center) >= half:
+                ok = False
+                break
+        if ok:
+            val = co[axis]
+            if best is None or val * direction > best * direction:
+                best = val
     if best is None:
-        print("[rig] WARNING: crown sampling found no central vertices; using bbox top")
-        return mx.z
-    print(f"[rig] crown height: {best:.3f} (bbox top {mx.z:.3f}, "
-          f"delta {mx.z - best:.3f} = baked antenna tips)")
+        print(f"[rig] WARNING: surface sampling for '{label}' found no vertices; "
+              f"using fallback {fallback:.3f}")
+        return fallback
+    print(f"[rig] surface '{label}': {best:.3f} (bbox fallback {fallback:.3f}, "
+          f"delta {abs(fallback - best):.3f})")
     return best
 
 
@@ -378,10 +385,41 @@ def add_sockets(arm_obj, bounds, mesh_obj):
     cx = (mn.x + mx.x) / 2.0
     cy = (mn.y + mx.y) / 2.0
     back_y = cy + depth * 0.45
-    crown_z = crown_height(mesh_obj, mn, mx)
 
     def z(t):
         return mn.z + t * height
+
+    X, Y, Z = 0, 1, 2
+    xwin = hw * 0.2
+    zwin = height * 0.03
+
+    def surf(label, axis, direction, fallback, **wins):
+        windows = {}
+        if "x" in wins: windows[X] = (wins["x"], xwin)
+        if "y" in wins: windows[Y] = (wins["y"], xwin)
+        if "zz" in wins: windows[Z] = (wins["zz"], zwin)
+        return surface_extreme(mesh_obj, axis, direction, windows, fallback, label)
+
+    # Sampled true surfaces (see surface_extreme docstring for why bbox
+    # fractions are wrong for surface-mounted sockets):
+    crown_z      = surf("head crown",  Z, +1, mx.z,    x=cx, y=cy)
+    face_front   = surf("faceplate",   Y, -1, front_y, x=cx, zz=z(0.68))
+    chest_front  = surf("chest",       Y, -1, front_y, x=cx, zz=z(0.46))
+    belt_front_s = surf("belt front",  Y, -1, front_y, x=cx, zz=z(0.30))
+    # Belt sides: cap the x search range at 0.5·hw so the A-pose arms/hands
+    # (which hang at hip height further out in x) can't win the sample — we
+    # want the hip/torso side surface, not the arm. The hip flare tops out
+    # around 0.5·hw, so the cap loses nothing on the body itself.
+    belt_left_x = surface_extreme(
+        mesh_obj, X, +1,
+        {X: (cx + hw * 0.25, hw * 0.25), Y: (cy, xwin), Z: (z(0.30), zwin)},
+        cx + hw * 0.5, "belt left")
+    belt_right_x = surface_extreme(
+        mesh_obj, X, -1,
+        {X: (cx - hw * 0.25, hw * 0.25), Y: (cy, xwin), Z: (z(0.30), zwin)},
+        cx - hw * 0.5, "belt right")
+    lboot_front  = surf("left boot",   Y, -1, front_y, x=cx + hw * 0.28, zz=z(0.05))
+    rboot_front  = surf("right boot",  Y, -1, front_y, x=cx - hw * 0.28, zz=z(0.05))
 
     # name -> (bone, world_location)
     sockets = {
@@ -390,16 +428,16 @@ def add_sockets(arm_obj, bounds, mesh_obj):
         "head_right_antenna":("Head", Vector((cx - hw * 0.45, cy, z(0.95)))),
         "head_left_side":    ("Head", Vector((cx + hw * 0.88, cy, z(0.70)))),
         "head_right_side":   ("Head", Vector((cx - hw * 0.88, cy, z(0.70)))),
-        "faceplate":         ("Head", Vector((cx, front_y * 0.95, z(0.68)))),
-        "chest_center":      ("Chest", Vector((cx, front_y * 0.85, z(0.46)))),
-        "belt_front":        ("Hips", Vector((cx, front_y * 0.8, z(0.30)))),
-        "belt_left":         ("Hips", Vector((cx + hw * 0.5, cy, z(0.30)))),
-        "belt_right":        ("Hips", Vector((cx - hw * 0.5, cy, z(0.30)))),
+        "faceplate":         ("Head", Vector((cx, face_front, z(0.68)))),
+        "chest_center":      ("Chest", Vector((cx, chest_front, z(0.46)))),
+        "belt_front":        ("Hips", Vector((cx, belt_front_s, z(0.30)))),
+        "belt_left":         ("Hips", Vector((belt_left_x, cy, z(0.30)))),
+        "belt_right":        ("Hips", Vector((belt_right_x, cy, z(0.30)))),
         "back_center":       ("Chest", Vector((cx, back_y, z(0.50)))),
         "left_hand_grip":    ("Hand.L", Vector((cx + hw * 1.0, cy, z(0.28)))),
         "right_hand_grip":   ("Hand.R", Vector((cx - hw * 1.0, cy, z(0.28)))),
-        "left_boot_front":   ("Foot.L", Vector((cx + hw * 0.28, front_y, z(0.03)))),
-        "right_boot_front":  ("Foot.R", Vector((cx - hw * 0.28, front_y, z(0.03)))),
+        "left_boot_front":   ("Foot.L", Vector((cx + hw * 0.28, lboot_front, z(0.03)))),
+        "right_boot_front":  ("Foot.R", Vector((cx - hw * 0.28, rboot_front, z(0.03)))),
     }
 
     created = []
