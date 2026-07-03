@@ -1,8 +1,8 @@
 # KnitBit Face System — Expression Sprites (Phase 3a)
 
-First review batch of the animated face system: **static expression sprites only**.
-Transitions (crossfade), idle loop, and the audio-driven talk-cycle come after this
-batch is reviewed and approved.
+Static expression sprite set for the animated face system — **complete: 10/10
+expressions**. Transitions (crossfade), idle loop, and the audio-driven talk-cycle come
+after this set is reviewed and approved.
 
 The face is a flat pixel-display panel on the helmet — all expression work is 2D
 sprite/texture mapped onto the faceplate (`socket_faceplate` / faceplate UV), never
@@ -17,20 +17,32 @@ keeps the Phase 1 rig untouched.
 | `expression_happy.png` | Big grin, wide eyes | `happy` |
 | `expression_thinking.png` | Eyes up + ellipsis dots | `thinking` |
 | `expression_scared.png` | Wide eyes, small O mouth | `scared` |
+| `expression_effort.png` | Squinting eyes + gritted-teeth blocks | `effort` |
+| `expression_star_eyes.png` | Four-point star eyes + big smile (success) | `starEyes` |
+| `expression_confused.png` | Square eyes + spinner glyph mouth | `confused` |
+| `expression_low_battery.png` | Dim droopy eyes + flat mouth (half-brightness) | `lowBattery` |
+| `expression_startled.png` | Huge wide eyes + tiny o mouth | `startled` |
+| `expression_relieved.png` | Closed arc eyes + soft smile | `relieved` |
 
 Generated at 1024×1024 (1:1) via Higgsfield `nano_banana_pro`, glowing green LED-matrix
 style on black. These are review-resolution source images — for engine use they'll need
 cropping to the screen area, background removal/normalization, and downscaling to a
 consistent sprite sheet (deliberately deferred until the style is approved).
 
-## ⚠️ Expression list discrepancy (needs a decision)
+Known minor deviations from the enum's drawn designs (flag for the sprite-sheet
+normalization pass): `expression_relieved.png` added a decorative rounded-square border
+ring not present in the in-game design; `expression_effort.png`'s squint reads as angled
+blocks rather than flat horizontal bars; faceplate framing/zoom varies noticeably across
+the set (some fill the frame, some sit small in it) — normalization will crop all to a
+consistent screen region.
 
-The production plan references a "12-option expression list," but the only expression
+## Expression list decision (resolved by default)
+
+The production plan referenced a "12-option expression list," but the only expression
 list that exists in this repo is the `BitExpression` enum in
-`game/lib/characters/bit_character.dart` with **10** values: idle, happy, thinking,
-scared, effort, starEyes, confused, lowBattery, startled, relieved. This batch uses 4 of
-those 10 as a style test. Before building the full set, decide which list is
-authoritative (and where the 12-item list's extra entries come from).
+`game/lib/characters/bit_character.dart` with **10** values — so the enum was treated as
+authoritative and all 10 are now generated. If the 12-item list materializes (2 extra
+expressions), they can be added with the same prompt template.
 
 ## Style-consistency reference: Element (not Soul)
 
@@ -49,9 +61,10 @@ authoritative (and where the 12-item list's extra entries come from).
 
 ## Next steps (after review)
 
-1. Decide the authoritative expression list (10-enum vs 12-item plan).
-2. Generate the remaining expressions in the approved style.
-3. Normalize into an engine-ready sprite sheet (consistent crop/size/alpha).
+1. ~~Decide the authoritative expression list~~ ✅ resolved: 10-value enum (see above).
+2. ~~Generate the remaining expressions~~ ✅ all 10 generated.
+3. Normalize into an engine-ready sprite sheet (consistent crop/size/alpha — also fixes
+   the framing variance and the `relieved` border-ring deviation noted above).
 4. Build transitions: crossfade first; micro-animation strips only for a few signature
    expressions per theme later.
 5. Idle loop (blink/scanline shimmer) + audio-amplitude-driven talk-cycle strip.
