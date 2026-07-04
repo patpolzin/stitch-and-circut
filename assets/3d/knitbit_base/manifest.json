@@ -29,8 +29,8 @@
   "foot": {
    "x_min": 0.0,
    "x_max": 0.46,
-   "z_max": -0.5,
-   "comment": "Isolates the base's entire sculpted boot for the mesh-swap. v2 probe: the leg's narrow waist is z -0.48..-0.52 (x_max ~0.25); the base boot-top flare starts at ~-0.54 and the knee plate ends by -0.46. Cutting at -0.50 removes the whole sculpted boot; the replacement boot at scale 0.26 (cuff top ~-0.46) covers the cut edge. Cut must stay within the narrow waist band or base boot flare pokes past the prop cuff (seen at -0.56 and -0.60)."
+   "z_max": -0.445,
+   "comment": "Isolates the base's entire sculpted boot for the mesh-swap. v2 r7: cut raised to z -0.445, just below the fitted cuff rim (-0.439 at boot scale 0.28) - after the r6 depth-centering the boot's back wall sits at y ~0.12 while the leg's back yarn braids reach y ~0.14, so any leg geometry deeper inside the shaft poked through the wall as stray yarn tufts. Ending the leg right under the rim leaves nothing to poke; the bisect-plane cut edge hides inside the cuff. Must stay above the base boot-top flare (starts ~-0.54) and below the cuff rim."
   },
   "hand": {
    "x_min": 0.55,
