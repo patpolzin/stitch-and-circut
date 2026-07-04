@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "description": "Canonical KnitBit character-builder manifest. Single source of truth for the base rig, every trait's source mesh + fit transform, and the named preset loadouts. Read by tools/knitbit_manifest.py (pure Python), tools/build_character.py (Blender assembler), and tools/fit_traits.py. See docs/KnitBit-Base-Spec.md sections 4-6.",
+
+  "base": {
+    "rig": "knitbit_base_rigged.glb",
+    "comment": "char_height / half_width come from the base mesh bounds printed by tools/rig_knitbit.py (min=(-0.738,-0.371,-0.957) max=(0.733,0.373,0.954), Blender Z-up). All fit.scale values are fractions of char_height; fit.offset_frac is in socket-local space, also as fractions of char_height.",
+    "char_height": 1.911,
+    "half_width": 0.735
+  },
+
+  "sockets": [
+    "socket_head_top_center",
+    "socket_head_left_antenna",
+    "socket_head_right_antenna",
+    "socket_head_left_side",
+    "socket_head_right_side",
+    "socket_faceplate",
+    "socket_chest_center",
+    "socket_belt_front",
+    "socket_belt_left",
+    "socket_belt_right",
+    "socket_back_center",
+    "socket_left_hand_grip",
+    "socket_right_hand_grip",
+    "socket_left_boot_front",
+    "socket_right_boot_front"
+  ],
+
+  "slots": {
+    "antenna": {
+      "label": "Antenna",
+      "comment": "mount:antenna_pair traits fit on socket_head_left_antenna + socket_head_right_antenna (right mirrored on x)."
+    },
+    "helmet_panel": {
+      "label": "Head Top Panel",
+      "comment": "Low-profile surface detail on socket_head_top_center only. Never dome/helmet geometry (the head IS the helmet, spec section 1)."
+    },
+    "chest_icon": { "label": "Chest Icon" },
+    "belt_charm": { "label": "Belt Charm" },
+    "accessory": {
+      "label": "Accessory",
+      "comment": "Each accessory carries its own socket (backpack -> back_center, headphones -> head_top_center, watering can -> right_hand_grip)."
+    }
+  },
+
+  "traits": [
+    {
+      "id": "antenna_classic",
+      "slot": "antenna",
+      "label": "Classic Bulb",
+      "theme": "neutral",
+      "phase": "A",
+      "file": "traits/pilot/antenna.glb",
+      "mount": "antenna_pair",
+      "socket": null,
+      "fit": { "scale": 0.10, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+    },
+    {
+      "id": "antenna_scout",
+      "slot": "antenna",
+      "label": "Scout Camera",
+      "theme": "scout",
+      "phase": "B",
+      "file": "traits/pilot/antenna_scout.glb",
+      "mount": "antenna_pair",
+      "socket": null,
+      "note": "20-deg outward (Y) lean + 0.13 scale keep the camera modules off the base's baked-in antenna nubs and out of the variant_b headphone band. The lean is symmetric under the mirrored -x scale; an X tilt is not.",
+      "fit": { "scale": 0.13, "rotation_deg": [0, 20, 0], "offset_frac": [0, 0, 0] }
+    },
+    {
+      "id": "antenna_leaf",
+      "slot": "antenna",
+      "label": "Leaf Tip",
+      "theme": "garden",
+      "phase": "B",
+      "file": "traits/pilot/antenna_leaf.glb",
+      "mount": "antenna_pair",
+      "socket": null,
+      "note": "0.13 scale so the leaf tips clear the base's baked-in antenna nubs.",
+      "fit": { "scale": 0.13, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+    },
+
+    {
+      "id": "panel_reinforced",
+      "slot": "helmet_panel",
+      "label": "Reinforced",
+      "theme": "neutral",
+      "phase": "A",
+      "file": "traits/pilot/helmet_panel.glb",
+      "mount": "socket",
+      "socket": "socket_head_top_center",
+      "note": "Small -0.01 z offset sinks the plate edges into the curved crown instead of hovering.",
+      "fit": { "scale": 0.15, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, -0.01] }
+    },
+    {
+      "id": "panel_smooth",
+      "slot": "helmet_panel",
+      "label": "Smooth",
+      "theme": "neutral",
+      "phase": "B",
+      "file": "traits/pilot/panel_smooth.glb",
+      "mount": "socket",
+      "socket": "socket_head_top_center",
+      "fit": { "scale": 0.15, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, -0.01] }
+    },
+    {
+      "id": "panel_yarn",
+      "slot": "helmet_panel",
+      "label": "Yarn Patch",
+      "theme": "garden",
+      "phase": "B",
+      "file": "traits/pilot/panel_yarn.glb",
+      "mount": "socket",
+      "socket": "socket_head_top_center",
+      "fit": { "scale": 0.15, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, -0.01] }
+    },
+
+    {
+      "id": "chest_star",
+      "slot": "chest_icon",
+      "label": "Star",
+      "theme": "neutral",
+      "phase": "A",
+      "file": "traits/pilot/chest_icon.glb",
+      "mount": "socket",
+      "socket": "socket_chest_center",
+      "fit": { "scale": 0.11, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+    },
+    {
+      "id": "chest_wrench",
+      "slot": "chest_icon",
+      "label": "Wrench + Gear",
+      "theme": "maker",
+      "phase": "B",
+      "file": "traits/pilot/chest_wrench.glb",
+      "mount": "socket",
+      "socket": "socket_chest_center",
+      "fit": { "scale": 0.11, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+    },
+    {
+      "id": "chest_leaf",
+      "slot": "chest_icon",
+      "label": "Leaf",
+      "theme": "garden",
+      "phase": "B",
+      "file": "traits/pilot/chest_leaf.glb",
+      "mount": "socket",
+      "socket": "socket_chest_center",
+      "note": "This badge reconstructed lying flat (emblem up) unlike the standing wrench badge, so it needs a real +90 X pitch to face the emblem front (verified against -90/180).",
+      "fit": { "scale": 0.11, "rotation_deg": [90, 0, 0], "offset_frac": [0, 0, 0] }
+    },
+
+    {
+      "id": "charm_gear",
+      "slot": "belt_charm",
+      "label": "Gear",
+      "theme": "neutral",
+      "phase": "A",
+      "file": "traits/pilot/belt_charm.glb",
+      "mount": "socket",
+      "socket": "socket_belt_front",
+      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+    },
+    {
+      "id": "charm_coin",
+      "slot": "belt_charm",
+      "label": "Coin",
+      "theme": "maker",
+      "phase": "B",
+      "file": "traits/pilot/charm_coin.glb",
+      "mount": "socket",
+      "socket": "socket_belt_front",
+      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+    },
+    {
+      "id": "charm_flower",
+      "slot": "belt_charm",
+      "label": "Flower",
+      "theme": "garden",
+      "phase": "B",
+      "file": "traits/pilot/charm_flower.glb",
+      "mount": "socket",
+      "socket": "socket_belt_front",
+      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+    },
+
+    {
+      "id": "acc_backpack",
+      "slot": "accessory",
+      "label": "Backpack",
+      "theme": "neutral",
+      "phase": "A",
+      "file": "traits/pilot/backpack.glb",
+      "mount": "socket",
+      "socket": "socket_back_center",
+      "fit": { "scale": 0.42, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+    },
+    {
+      "id": "acc_headphones",
+      "slot": "accessory",
+      "label": "Headphones",
+      "theme": "music",
+      "phase": "B",
+      "file": "traits/pilot/headphones.glb",
+      "mount": "socket",
+      "socket": "socket_head_top_center",
+      "note": "0.62 scale + higher mount (-0.11 z) so the band arcs above and around the antennae instead of slicing through them. Single band unit spanning both ear cups; an arched topper is low-profile, not dome geometry (spec section 1).",
+      "fit": { "scale": 0.62, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, -0.11] }
+    },
+    {
+      "id": "acc_watering_can",
+      "slot": "accessory",
+      "label": "Watering Can",
+      "theme": "garden",
+      "phase": "B",
+      "file": "traits/pilot/watering_can.glb",
+      "mount": "socket",
+      "socket": "socket_right_hand_grip",
+      "note": "First handheld: parents to a hand-grip socket rather than a surface socket.",
+      "fit": { "scale": 0.16, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+    }
+  ],
+
+  "presets": {
+    "pilot": {
+      "label": "Pilot (Phase A picks)",
+      "preview_stem": "knitbit_pilot_preview",
+      "loadout": {
+        "antenna": "antenna_classic",
+        "helmet_panel": "panel_reinforced",
+        "chest_icon": "chest_star",
+        "belt_charm": "charm_gear",
+        "accessory": "acc_backpack"
+      }
+    },
+    "variant_b": {
+      "label": "Tech",
+      "preview_stem": "knitbit_pilot_preview_b",
+      "loadout": {
+        "antenna": "antenna_scout",
+        "helmet_panel": "panel_smooth",
+        "chest_icon": "chest_wrench",
+        "belt_charm": "charm_coin",
+        "accessory": "acc_headphones"
+      }
+    },
+    "variant_c": {
+      "label": "Garden",
+      "preview_stem": "knitbit_pilot_preview_c",
+      "loadout": {
+        "antenna": "antenna_leaf",
+        "helmet_panel": "panel_yarn",
+        "chest_icon": "chest_leaf",
+        "belt_charm": "charm_flower",
+        "accessory": "acc_watering_can"
+      }
+    }
+  }
+}

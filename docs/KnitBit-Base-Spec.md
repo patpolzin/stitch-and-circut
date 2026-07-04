@@ -182,10 +182,11 @@ geometry, so the §1 rule holds).
 
 **Pipeline:** Higgsfield `generate_image` (concept art, styled to the DNA in §1) →
 `image_to_3d` (textured + PBR mesh per prop, no rigging needed — static props) →
-`tools/fit_traits.py` (Blender: imports the rigged base + each prop, scales to a
+`tools/build_character.py` (Blender: imports the rigged base + each prop, scales to a
 per-prop target size, **object-parents** the prop to its `socket_<name>` empty, exports
 the assembled scene, and renders two verification angles under Xvfb since this container
-has no display).
+has no display). The per-prop fit values feeding that last step now live in the trait
+manifest — see §10.
 
 **Result:** `assets/3d/knitbit_base/knitbit_pilot_preview.glb` — base + all 6 props
 (antenna is a mirrored pair), each correctly parented to its socket, confirmed both
@@ -364,3 +365,61 @@ Keep two sheet types separate:
 
 Do not cram every production part onto one mega-sheet — pieces end up too small and
 inconsistent to isolate for 3D conversion.
+
+---
+
+## 10. Character builder (manifest + assembler)
+
+The bridge from "traits proven one-by-one in Blender" to "a tool can assemble any
+character." Three pieces:
+
+| File | Role |
+| --- | --- |
+| `assets/3d/knitbit_base/manifest.json` | **Single source of truth.** The base rig, every trait's source mesh + fit transform (scale / rotation / offset / mount), and named preset loadouts. |
+| `tools/knitbit_manifest.py` | Pure-Python loader (stdlib only, **no Blender**). Resolves a loadout `{slot: trait_id}` into concrete mount instructions; expands `antenna_pair` traits into a left + mirrored-right pair. Runnable as a CLI to inspect/validate the manifest. |
+| `tools/build_character.py` | Blender assembler. Reads the manifest, mounts a chosen trait per slot onto the base, exports an assembled GLB + front/side renders. Takes named presets **or** an arbitrary `slot=trait` loadout. |
+
+**Why a manifest.** The fit numbers (per-prop scale, the leaf badge's +90° pitch,
+the scout antenna's outward lean, the headphone band's raised mount) used to be
+duplicated across hardcoded Python dicts. They now live once, as data. Any
+frontend — a future web/GUI builder, a batch renderer, the game's own loader — can
+read `manifest.json` to know what traits exist, how they group into slots, and how
+each mounts, without touching Blender. `tools/knitbit_manifest.py --check`
+validates every trait resolves to a known socket with its source mesh present.
+
+**Usage.**
+```
+# inspect the catalog / presets / validate — no Blender needed
+python3 tools/knitbit_manifest.py            # traits grouped by slot
+python3 tools/knitbit_manifest.py --presets  # what each preset mounts where
+python3 tools/knitbit_manifest.py --check     # structural validation
+
+# assemble (Blender). Args after `--`:
+blender --background --python tools/build_character.py                 # all presets
+blender --background --python tools/build_character.py -- variant_b    # one preset
+blender --background --python tools/build_character.py -- \            # custom mix
+    antenna=antenna_scout helmet_panel=panel_yarn chest_icon=chest_star \
+    belt_charm=charm_flower accessory=acc_backpack out=mashup
+```
+`tools/fit_traits.py` is now a deprecated shim that just delegates the three
+canonical presets to `build_character.py`.
+
+**Validated.** The manifest-driven builder reproduces all three preset builds'
+socket graphs exactly (parsed from the glTF) and pixel-for-pixel in render, and a
+never-a-preset cross-theme mashup (scout antennae + yarn crown patch + star badge +
+flower charm + backpack) assembles cleanly — proving the mix-and-match path.
+
+**Adding a trait** (once its `.glb` is in `traits/`): append one object to
+`manifest.traits` with its `slot`, `file`, `mount`/`socket`, and `fit` block; run
+`--check`; assemble a loadout that uses it. No code change — the fit is data.
+
+### Not yet built (future builder work)
+- **Boots + hands as mesh-swaps** (§5): unlike socketed props, these replace base
+  geometry, so they need a different mount path in the assembler (skinned part swap,
+  not object-parent).
+- **Theme material-swap** (§7): yarn/accent color is a material change, not a mesh —
+  a `theme` field already tags each trait; the assembler doesn't yet apply a palette.
+- **Compatibility / rarity rules** (build-order step 8): the data layer that says
+  which traits may coexist and how often — a natural companion file to the manifest.
+- **Large GLBs → Git LFS:** assembled preview GLBs exceed GitHub's 50 MB warning;
+  move `*.glb` to LFS before the library grows.
