@@ -499,7 +499,7 @@
    "mount": "limb_pair",
    "attach_bone": "Foot",
    "hides": "foot",
-   "note": "v2 retune r4: boots centered on the VISIBLE shin columns just above the cuff (probed z -0.44..-0.51, excluding crotch: L x_mean +0.159, R x_mean -0.155 - the earlier r2 alignment used the base boot-flare zone, which sits wider than the shin, so both boots sat outboard; user flagged the right one). offset_frac_right handles the L/R mesh asymmetry; scale 0.28 cuff still contains the shin cut edge on both sides.",
+   "note": "v2 retune r5: boots centered on the SILHOUETTE center (bbox mid) of the leg segment actually visible between the brief hem and the cuff top (z -0.42..-0.37): L +0.146, R -0.146. x_mean is biased inboard by the inner-thigh yarn drape; the bbox center is what reads as the leg's centerline from the front.",
    "fit": {
     "scale": 0.28,
     "rotation_deg": [
@@ -508,12 +508,12 @@
      90
     ],
     "offset_frac": [
-     -0.0126,
+     -0.0194,
      0.0073,
      0.0897
     ],
     "offset_frac_right": [
-     -0.0162,
+     -0.0209,
      0.0073,
      0.0897
     ]
