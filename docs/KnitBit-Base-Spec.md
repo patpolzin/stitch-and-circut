@@ -152,13 +152,33 @@ Prove the base before scaling traits:
 socket-fitted to prove the attachment mechanics work before spending on the rest of the
 table below.
 
-| Slot | Options | Phase A pick |
+**Status: Phase A + Phase B done.** All three options in every slot are now
+generated, converted to 3D, and socket-fitted. They are assembled into three
+full-body preview builds (one option per slot each) to prove the whole slot
+table works modularly, not just one pick:
+
+| Slot | Options | Phase A pick | Phase B variants |
+| --- | --- | --- | --- |
+| Antenna | Classic bulbs · scout cameras · leaf tips | ✅ Classic bulb (pair) | ✅ scout camera, ✅ leaf tip |
+| Helmet top panel | Smooth · reinforced · yarn patch | ✅ Reinforced | ✅ smooth, ✅ yarn patch |
+| Chest icon | Star · wrench · leaf | ✅ Star | ✅ wrench, ✅ leaf |
+| Belt charm | Coin · gear · flower | ✅ Gear | ✅ coin, ✅ flower |
+| Accessory | Backpack · headphones · watering can | ✅ Backpack | ✅ headphones, ✅ watering can |
+
+**Three assembled builds** (`tools/fit_traits.py` now takes build names as
+args; run with none to build all three):
+
+| Build | Preview stem | Set |
 | --- | --- | --- |
-| Antenna | Classic bulbs · scout cameras · leaf tips | ✅ Classic bulb (pair) |
-| Helmet top panel | Smooth · reinforced · yarn patch | ✅ Reinforced |
-| Chest icon | Star · wrench · leaf | ✅ Star |
-| Belt charm | Coin · gear · flower | ✅ Gear |
-| Accessory | Backpack · headphones · watering can | ✅ Backpack |
+| `pilot` | `knitbit_pilot_preview` | Phase A picks |
+| `variant_b` | `knitbit_pilot_preview_b` | "tech": scout-camera antennae, smooth panel, wrench icon, coin charm, headphones |
+| `variant_c` | `knitbit_pilot_preview_c` | "garden": leaf antennae, yarn-patch panel, leaf icon, flower charm, watering can |
+
+`variant_c`'s watering can is the **first handheld** to exercise a hand-grip
+socket (`socket_right_hand_grip`) rather than a surface/head socket — proving
+that attachment path too. `variant_b`'s headphones mount as a single band unit
+over `socket_head_top_center` (an arched topper is low-profile, not dome
+geometry, so the §1 rule holds).
 
 **Pipeline:** Higgsfield `generate_image` (concept art, styled to the DNA in §1) →
 `image_to_3d` (textured + PBR mesh per prop, no rigging needed — static props) →
@@ -204,6 +224,32 @@ near its own position (crown, faceplate, chest, belt front/sides, boot fronts). 
 sampling caps its x-range at 0.5·half-width to find the hip flank (±0.23) instead of the
 hand (±0.73).
 
+**Known issue 4 (rotation hints were silently ignored, fixed in Phase B):** the
+glTF importer leaves every imported prop in `QUATERNION` rotation mode, in which
+assigning `obj.rotation_euler` is a **no-op** — so every `rot_deg` hint in the
+Phase A `PROPS` table did nothing, and the props happened to look right only
+because their imported orientation already matched. Phase B's leaf chest badge
+imported lying flat (emblem up) and so needed a real +90° X pitch to face front,
+which exposed the bug. Fixed in `fit_prop()` by switching the prop to
+`QUATERNION` mode and composing the hint **on top of** the imported orientation
+(`rotation_quaternion = hint_q @ base_q`). Hint `(0,0,0)` now reproduces the old
+de-facto "keep as imported" behavior, so the two stale Phase-A hints that never
+applied (`chest_icon` 90°, `backpack` 180°) were reset to `(0,0,0)` to match what
+was actually rendering. **Verify a prop's rest orientation** (render it in
+isolation) before assuming a hint is needed — reconstructions of the same slot
+don't share a rest pose (the wrench badge imports standing, the leaf badge flat).
+
+**Known issue 5 (headphones ∩ antennae, fixed):** in `variant_b` the headphone
+band arcs across the crown at exactly the height the scout-camera antennae reach,
+so the band sliced through the camera modules. Fixed by separating the two props
+on two fronts: a **20° outward (Y) lean** on the antennae (symmetric under the
+mirrored −x scale — an X-axis tilt is *not*, because the left/right antenna
+sockets carry mirror-opposite base orientations, so an X tilt clears one side and
+buries the other), plus **raising and widening the band** (scale 0.55→0.62, mount
+offset −0.18→−0.11) so its arch rides above the antenna tips. General rule: when
+two crown props share `head_top_center`-ish space, prefer symmetric Y-lean +
+resize over per-side rotation.
+
 **Pipeline takeaways for future concept art:**
 - Keep prop reference photos free of incidental dangling/chained elements — the
   reconstruction includes whatever's in frame.
@@ -213,14 +259,21 @@ hand (±0.73).
 - **Never place surface-mounted sockets at bounding-box fractions** — sample the mesh
   surface local to the socket (see `surface_extreme()`); bbox extremes belong to whatever
   protrudes furthest, not the mounting surface.
+- **Rotation hints only apply after switching the prop out of QUATERNION mode** (see
+  issue 4). Render each new prop in isolation to read its true rest orientation before
+  guessing a hint; sibling reconstructions of the same slot do not share one.
+- **Two props on the same crown socket must be deconflicted deliberately** (see issue 5),
+  favouring mirror-symmetric adjustments (outward Y-lean, resize) over per-side tilts.
 
-**Individual pilot prop assets:** `assets/3d/knitbit_base/traits/pilot/{antenna,
-helmet_panel, chest_icon, belt_charm, backpack}.glb` — textured, unrigged, ready to
+**Individual pilot prop assets:** `assets/3d/knitbit_base/traits/pilot/*.glb` — 15
+textured, unrigged props (Phase A's `{antenna, helmet_panel, chest_icon, belt_charm,
+backpack}` plus Phase B's `{antenna_scout, antenna_leaf, panel_smooth, panel_yarn,
+chest_wrench, chest_leaf, charm_coin, charm_flower, headphones, watering_can}`), ready to
 socket-fit onto future base exports the same way.
 
-**Phase B (not started):** the remaining 10 variants (scout camera & leaf-tip antennas,
-smooth & yarn-patch helmet panels, wrench & leaf chest icons, coin & flower belt charms,
-headphones & watering can accessories) to complete the table above.
+**Phase B: done.** All 10 remaining variants generated, converted, fitted into the
+`variant_b`/`variant_c` builds, and validated both structurally (every `trait_*` node
+parented to its `socket_*`, parsed from the glTF) and visually (rendered front + side).
 
 ---
 
