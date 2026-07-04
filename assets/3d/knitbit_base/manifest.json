@@ -499,7 +499,7 @@
    "mount": "limb_pair",
    "attach_bone": "Foot",
    "hides": "foot",
-   "note": "v2 retune r5: boots centered on the SILHOUETTE center (bbox mid) of the leg segment actually visible between the brief hem and the cuff top (z -0.42..-0.37): L +0.146, R -0.146. x_mean is biased inboard by the inner-thigh yarn drape; the bbox center is what reads as the leg's centerline from the front.",
+   "note": "v2 retune r6 (closed-loop): the leg's centerline is centered in the CUFF OPENING (top tube ring), not the whole-boot bbox - the shaft sits in the back half of the boot, so bbox-centering left the leg hugging the front edge of the tube (cuff ring center was 0.128 behind the leg). Residuals measured by probing the fitted cuff ring vs the leg column at cuff height and driven to ~zero; the toe extends forward like a real foot.",
    "fit": {
     "scale": 0.28,
     "rotation_deg": [
@@ -509,12 +509,12 @@
     ],
     "offset_frac": [
      -0.0194,
-     0.0073,
+     -0.0597,
      0.0897
     ],
     "offset_frac_right": [
-     -0.0209,
-     0.0073,
+     -0.0195,
+     -0.0597,
      0.0897
     ]
    }
