@@ -39,7 +39,7 @@
     "chest_icon": { "label": "Chest Icon" },
     "belt_charm": {
       "label": "Belt Charm",
-      "comment": "All belt charms mount on socket_belt_front but share a fit.offset_frac that hangs them on the front-RIGHT of the belt, partway toward the right hip (socket_belt_right sits at x=-0.234; character's right = -x). The offset moves -x (toward the right hip) and +y (back, following the belt's curve so the charm stays on the surface). Kept identical across all charms so the slot placement reads consistently."
+      "comment": "All belt charms mount on socket_belt_front but share a fit.offset_frac that CLASPS them over the top edge of the belt, on the front-RIGHT toward the right hip (socket_belt_right sits at x=-0.234; character's right = -x). The offset moves -x (toward the right hip), -y (slightly forward so the charm hangs proud of the belt face rather than embedded), and +z (up, so the hanger tab hooks over the belt's top rim and the body dangles down over the band). Kept identical across all charms so the slot placement reads consistently."
     },
     "accessory": {
       "label": "Accessory",
@@ -164,7 +164,7 @@
       "mount": "socket",
       "socket": "socket_belt_front",
       "note": "offset_frac hangs the charm on the front-right of the belt toward the right hip (see the belt_charm slot comment).",
-      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [-0.06, 0.035, 0] }
+      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [-0.06, -0.02, 0.05] }
     },
     {
       "id": "charm_coin",
@@ -176,7 +176,7 @@
       "mount": "socket",
       "socket": "socket_belt_front",
       "note": "offset_frac hangs the charm on the front-right of the belt toward the right hip (see the belt_charm slot comment).",
-      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [-0.06, 0.035, 0] }
+      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [-0.06, -0.02, 0.05] }
     },
     {
       "id": "charm_flower",
@@ -188,7 +188,7 @@
       "mount": "socket",
       "socket": "socket_belt_front",
       "note": "offset_frac hangs the charm on the front-right of the belt toward the right hip (see the belt_charm slot comment).",
-      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [-0.06, 0.035, 0] }
+      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [-0.06, -0.02, 0.05] }
     },
 
     {
