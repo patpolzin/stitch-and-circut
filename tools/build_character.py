@@ -64,6 +64,15 @@ def find_socket(name):
     return obj
 
 
+def find_body(objs):
+    meshes = [o for o in objs if o.type == "MESH"]
+    return max(meshes, key=lambda o: len(o.data.vertices)) if meshes else None
+
+
+def find_armature(objs):
+    return next((o for o in objs if o.type == "ARMATURE"), None)
+
+
 def longest_dimension(obj):
     coords = [obj.matrix_world @ mathutils.Vector(c) for c in obj.bound_box]
     xs = [c.x for c in coords]
@@ -72,15 +81,62 @@ def longest_dimension(obj):
     return max(max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs))
 
 
-def fit_instruction(instr):
-    """Mount one km.FitInstruction onto its socket in the current scene.
+def hide_mesh_region(body_obj, region, mirror_x):
+    """Delete base-mesh vertices inside a manifest.mesh_regions window via
+    bmesh, so a mesh-swap trait's replacement doesn't double up with the base's
+    own geometry there (boots/hands — see docs/KnitBit-Base-Spec.md section 10).
+    Windows are stored for the LEFT (+x) side; mirror_x flips to -x for the
+    right. Runs on the imported base mesh in memory only — the committed base
+    GLB is never touched."""
+    import bmesh
+    x_lo, x_hi = region["x_min"], region["x_max"]
+    if mirror_x:
+        x_lo, x_hi = -x_hi, -x_lo
+    z_max = region.get("z_max")
 
-    The fit mechanics (scale-to-target, object-parent-to-socket, surface-mount
-    offset, and the QUATERNION-mode rotation compose) are the exact ones proven
-    in the Phase A/B pilot; the numbers now come from the manifest, not code."""
-    socket = find_socket(instr.socket)
-    if socket is None:
-        return None
+    bm = bmesh.new()
+    bm.from_mesh(body_obj.data)
+    bm.verts.ensure_lookup_table()
+    to_delete = []
+    for v in bm.verts:
+        co = body_obj.matrix_world @ v.co
+        if x_lo <= co.x <= x_hi and (z_max is None or co.z <= z_max):
+            to_delete.append(v)
+    bmesh.ops.delete(bm, geom=to_delete, context='VERTS')
+    bm.to_mesh(body_obj.data)
+    bm.free()
+    body_obj.data.update()
+    print(f"[build] hid mesh_region x=[{x_lo:.3f},{x_hi:.3f}]"
+          f"{f' z<={z_max:.3f}' if z_max is not None else ''}: {len(to_delete)} verts removed")
+
+
+def fit_instruction(instr, body_obj=None, armature_obj=None, hidden=None):
+    """Mount one km.FitInstruction in the current scene: onto a socket empty
+    for a normal attachment, or directly at a bone head for a mesh-swap
+    (instr.attach_bone set, instr.socket None) — after first hiding the base's
+    own geometry in that region so the swap doesn't double up with it.
+
+    The fit mechanics (scale-to-target, object-parent, surface-mount offset,
+    and the QUATERNION-mode rotation compose) are the exact ones proven in the
+    Phase A/B pilot; the numbers now come from the manifest, not code."""
+    if instr.hides_region and hidden is not None:
+        key = (instr.hides_region, instr.mirror_x)
+        if key not in hidden:
+            hide_mesh_region(body_obj, MANIFEST["mesh_regions"][instr.hides_region], instr.mirror_x)
+            hidden.add(key)
+
+    if instr.socket is not None:
+        parent_obj = find_socket(instr.socket)
+        if parent_obj is None:
+            return None
+        base_location = mathutils.Vector((0, 0, 0))
+    else:
+        if armature_obj is None or instr.attach_bone not in armature_obj.data.bones:
+            print(f"[build] WARNING: bone '{instr.attach_bone}' not found for '{instr.name}'")
+            return None
+        parent_obj = armature_obj
+        bone = armature_obj.data.bones[instr.attach_bone]
+        base_location = armature_obj.matrix_world @ bone.head_local
 
     objs = import_glb(instr.file)
     meshes = [o for o in objs if o.type == "MESH"]
@@ -102,20 +158,37 @@ def fit_instruction(instr):
     if instr.mirror_x:
         scale = -scale
 
-    prop.parent = socket
+    prop.parent = parent_obj
     prop.parent_type = "OBJECT"
-    # Leave matrix_parent_inverse at identity so the socket's world transform
+    # Leave matrix_parent_inverse at identity so the parent's world transform
     # applies on top of the prop's local loc/rot/scale (matrix_world =
-    # socket.matrix_world @ local_matrix); the usual inverse idiom would drop
-    # every prop back at the scene origin instead of at its socket.
-    prop.location = tuple(f * CHAR_HEIGHT for f in instr.offset_frac)
+    # parent.matrix_world @ local_matrix); the usual inverse idiom would drop
+    # every prop back at the scene origin instead of at its target. For a
+    # socket, local space IS the socket's own position (offset only); for a
+    # bone attach, the bone head is the base position and offset fine-tunes it.
+    prop.location = base_location + mathutils.Vector(tuple(f * CHAR_HEIGHT for f in instr.offset_frac))
     # The glTF importer leaves objects in QUATERNION mode, where assigning
     # rotation_euler is silently ignored. Compose the manifest hint ON TOP of
     # the imported orientation via quaternions: hint (0,0,0) keeps the prop as
     # imported, a nonzero hint actually turns it.
     base_q = prop.matrix_basis.to_quaternion()
     prop.rotation_mode = "QUATERNION"
-    hint_q = mathutils.Euler(tuple(math.radians(d) for d in instr.rotation_deg)).to_quaternion()
+    rx, ry, rz = instr.rotation_deg
+    if instr.mirror_x:
+        # The X-mirror (negative x-scale below) happens BEFORE rotation in
+        # Blender's TRS order. For the mirrored instance to be the true mirror
+        # image of the unmirrored one (not just the same rotation replayed on
+        # flipped geometry), the applied rotation must be the X-mirror's
+        # conjugate of the hint: R_right = Mx @ R_left @ Mx. Verified
+        # algebraically (and holds for ANY Euler composition order, since
+        # conjugation distributes over a matrix product term-by-term): this
+        # conjugate negates the Y and Z components and leaves X unchanged.
+        # (An earlier version of this fix only negated Z; antenna_scout's
+        # small Y-lean happened to look fine either way because a thin stalk
+        # is nearly rotationally symmetric about its own axis, which masked
+        # the missing Y negation — re-verified after this fix, still correct.)
+        ry, rz = -ry, -rz
+    hint_q = mathutils.Euler((math.radians(rx), math.radians(ry), math.radians(rz))).to_quaternion()
     prop.rotation_quaternion = hint_q @ base_q
     prop.scale = (scale, abs(scale), abs(scale))
     bpy.context.view_layer.update()
@@ -123,11 +196,11 @@ def fit_instruction(instr):
     if instr.dynamic:
         _make_dynamic(prop, instr.dynamic)
 
-    sock_pos = tuple(round(v, 3) for v in socket.matrix_world.translation)
+    target_label = instr.socket or f"bone:{instr.attach_bone}"
     prop_pos = tuple(round(v, 3) for v in prop.matrix_world.translation)
     print(f"[build] {instr.name}: dim={dim:.3f} -> scale={scale:.3f} "
-          f"@ '{instr.socket}' socket_world={sock_pos} prop_world={prop_pos}"
-          f"{'  [dynamic]' if instr.dynamic else ''}")
+          f"@ '{target_label}' base_world={tuple(round(v,3) for v in base_location)} prop_world={prop_pos}"
+          f"{'  [dynamic]' if instr.dynamic else ''}{'  [hides:'+instr.hides_region+']' if instr.hides_region else ''}")
     return prop
 
 
@@ -229,11 +302,14 @@ def export(out_path):
 def build(instructions, out_stem, out_dir, render=True):
     print(f"[build] === {out_stem} ({len(instructions)} props) ===")
     clean_scene()
-    import_glb(BASE_GLB)
+    base_objs = import_glb(BASE_GLB)
+    body_obj = find_body(base_objs)
+    armature_obj = find_armature(base_objs)
+    hidden = set()  # (region_key, mirror_x) already hidden this build, avoid re-deleting
 
     fitted = []
     for instr in instructions:
-        if fit_instruction(instr):
+        if fit_instruction(instr, body_obj, armature_obj, hidden):
             fitted.append(instr.name)
     print(f"[build] fitted {len(fitted)}/{len(instructions)}: {fitted}")
 

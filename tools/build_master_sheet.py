@@ -44,8 +44,8 @@ THUMB = 220
 
 # planned categories not yet built (spec §5/§6 + builder gaps)
 PLANNED = [
-    "Boots (mesh-swap)", "Hands (mesh-swap)", "Belt pouches", "Boot decals",
-    "Surface decals", "Capes / cloaks", "Ear modules", "Faceplate FX",
+    "Belt pouches", "Boot decals", "Surface decals", "Capes / cloaks",
+    "Ear modules", "Faceplate FX",
 ]
 
 

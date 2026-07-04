@@ -27,6 +27,18 @@
     "socket_right_boot_front"
   ],
 
+  "mesh_regions": {
+    "_comment": "Absolute base-mesh vertex windows (same coordinate space as base.char_height/half_width) used to HIDE base geometry for a mount:limb_pair trait with a `hides` region — this is what makes boots/hands a true mesh-SWAP instead of a socketed overlay (no double-boot/double-hand). Measured once by probing knitbit_base_rigged.glb's vertex positions per limb (see docs/KnitBit-Base-Spec.md section 10). Windows are given for the LEFT (+x) side; the RIGHT side mirrors by negating x_min/x_max. build_character.py deletes any base vertex whose (x, z) falls inside the window via bmesh before mounting the replacement mesh — additive at build time, the committed base GLB is never modified.",
+    "foot": {
+      "x_min": 0.0, "x_max": 0.46, "z_max": -0.56,
+      "comment": "Isolates the boot region up through the lower shin. Widened/raised from the first pass (x_min 0.02->0.0, z_max -0.689->-0.56) after fitting a real replacement boot: a flat z-plane cut through the organic, non-cylindrical yarn-textured shin leaves a few small stray flaps below the average cutoff (the surface isn't flat), and the tighter window left them poking out past the boot cuff. This window clears them; a very minor residual flap can still peek out on the inner-facing side of each leg in some views — a known, accepted artifact of flat-plane cuts through organic reconstructed geometry (same class of issue as the Phase A belt-charm stray chain link)."
+    },
+    "hand": {
+      "x_min": 0.50, "x_max": 0.80,
+      "comment": "No z bound needed: in the A-pose this x-band contains ONLY the hand/fist (probed z range -0.480..-0.105) — nothing else in the mesh reaches that far out in x at any height, so the x-band alone cleanly isolates it from the forearm."
+    }
+  },
+
   "slots": {
     "antenna": {
       "label": "Antenna",
@@ -54,6 +66,14 @@
     "accessory": {
       "label": "Accessory",
       "comment": "Each accessory carries its own socket (backpack -> back_center, headphones -> head_top_center, watering can -> right_hand_grip)."
+    },
+    "boots": {
+      "label": "Boots",
+      "comment": "TRUE MESH-SWAP (spec section 5's 'Skinned / mesh-swapped lower-leg + foot part'), not a socketed overlay: mount:limb_pair with hides:'foot' deletes the base's own boot geometry (mesh_regions.foot) before attaching the replacement, mirrored L/R, at the Foot.L/Foot.R bone heads. Without the hide, the base's baked-in boot would double up with the new one (same class of bug as the original helmet-on-helmet issue)."
+    },
+    "hands": {
+      "label": "Hands",
+      "comment": "TRUE MESH-SWAP, same mechanism as boots: mount:limb_pair with hides:'hand' deletes the base's own hand geometry (mesh_regions.hand) before attaching the replacement at the Hand.L/Hand.R bone heads."
     }
   },
 
@@ -249,6 +269,33 @@
       "socket": "socket_right_hand_grip",
       "note": "First handheld: parents to a hand-grip socket rather than a surface socket.",
       "fit": { "scale": 0.16, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+    },
+
+    {
+      "id": "boot_classic",
+      "slot": "boots",
+      "label": "Classic",
+      "theme": "neutral",
+      "phase": "A",
+      "file": "traits/pilot/boot_classic.glb",
+      "mount": "limb_pair",
+      "attach_bone": "Foot",
+      "hides": "foot",
+      "note": "Toe reconstructed along the mesh's own local X; rotation_deg z=-90 turns it to face -Y (character forward). Verified with a top-down isolated render before wiring in (a yaw is NOT symmetric under mirror_x the way a Y-lean is — see build_character.py's fit_instruction, which negates Y and Z for the mirrored instance so both boots face forward instead of the naive mirror pointing the right boot's toe backward). offset_frac.z raises the boot so its cuff meets the hidden shin cleanly.",
+      "fit": { "scale": 0.20, "rotation_deg": [0, 0, -90], "offset_frac": [0, 0, 0.15] }
+    },
+    {
+      "id": "hand_classic",
+      "slot": "hands",
+      "label": "Classic",
+      "theme": "neutral",
+      "phase": "A",
+      "file": "traits/pilot/hand_classic.glb",
+      "mount": "limb_pair",
+      "attach_bone": "Hand",
+      "hides": "hand",
+      "note": "rotation_deg computed with mathutils Vector.rotation_difference(), aligning the fist's local knuckle direction (-Y) to the Hand.L bone's actual head->tail direction (mostly -Z/down with some +X/outward, matching the A-pose forearm) rather than guessed by eye. offset_frac nudges the wrist cap snugly against the hidden forearm stump.",
+      "fit": { "scale": 0.20, "rotation_deg": [73.86, -25.68, 33.74], "offset_frac": [0.02, 0, -0.035] }
     }
   ],
 
@@ -261,7 +308,9 @@
         "helmet_panel": "panel_reinforced",
         "chest_icon": "chest_star",
         "belt_charm": "charm_gear",
-        "accessory": "acc_backpack"
+        "accessory": "acc_backpack",
+        "boots": "boot_classic",
+        "hands": "hand_classic"
       }
     },
     "variant_b": {

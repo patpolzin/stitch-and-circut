@@ -142,7 +142,7 @@ Prove the base before scaling traits:
 3. Define skeleton + socket map ✅ *(§3–4; sockets applied in Blender)*
 4. Validate one small **pilot** accessory set ✅ *(Phase A done — see below)*
 5. Build the full Master Trait Diagram sheet ✅ *(see §9 — generated from the manifest)*
-6. Produce trait families by category
+6. Produce trait families by category *(started — boots + hands mesh-swap proven, see §10)*
 7. Produce theme packs
 8. Build compatibility + rarity rules
 
@@ -466,10 +466,82 @@ motion driven at runtime:
 Adding another free-hanging trait later (a keychain, a dangling tool) is just a
 slot with a `dynamic` block — no code change.
 
+### Mesh-swap traits — boots + hands (mount:limb_pair)
+
+**Status: proven (one option each — `boot_classic`, `hand_classic`).** Unlike every
+socketed prop above, boots and hands **replace** base geometry rather than sit on
+top of it (spec §5: "Skinned / mesh-swapped lower-leg + foot part" / "Skinned
+hand-mesh swap"). Without removing the base's own baked-in boot/hand first, a
+replacement would double up with it — the same class of bug as the original
+helmet-on-helmet issue. Two new pieces make this work, both driven entirely by
+manifest data (no rig regeneration):
+
+- **`manifest.mesh_regions`** — absolute vertex windows (`x_min`/`x_max`, optional
+  `z_max`) that isolate the foot and hand geometry on the base mesh, measured by
+  probing `knitbit_base_rigged.glb`'s actual vertex positions per limb (histogram
+  the vertex count by z-band within an x-window restricted to one limb — the
+  window alone cleanly isolates the hand in the A-pose; the boot additionally
+  needs a z cutoff since its x-window overlaps the torso at higher z). Windows are
+  stored for the LEFT (+x) side; the right mirrors by negating x_min/x_max.
+- **`mount:limb_pair`** traits carry `attach_bone` (a bone name **without** the
+  `.L`/`.R` suffix, e.g. `"Foot"`) and `hides` (a `mesh_regions` key). The loader
+  expands one trait into two `FitInstruction`s (`attach_bone="Foot.L"`/`"Foot.R"`,
+  mirrored) with no `socket` — `build_character.py` recognizes a `None` socket as
+  "attach directly to this bone" instead of a socket empty, reading the bone's
+  head position straight from the imported armature (no new sockets or a
+  `rig_knitbit.py` regeneration needed). Before mounting, it deletes any base
+  vertex inside the `hides` window via `bmesh` (in memory, per build — the
+  committed base GLB is never modified), then places the replacement at the bone
+  head plus the trait's usual `offset_frac`.
+
+**Two things had to be *right*, not just present, for this to look correct** —
+both found and fixed while fitting the real assets, not anticipated in advance:
+
+1. **A yaw is not symmetric under `mirror_x` the way the belt-charm's Y-lean is.**
+   Blender's TRS order applies the X-mirror scale *before* rotation, so naively
+   reusing the same rotation hint for both mirrored instances is only correct if
+   the rotation is about the mirror axis itself. Verified algebraically (holds for
+   any Euler composition order, since conjugation distributes over a matrix
+   product term-by-term): the mirrored instance needs `Y` and `Z` **negated**,
+   `X` unchanged (`R_right = M_x · R_left · M_x`). `fit_instruction()` now applies
+   this automatically for every mirrored instruction. Without it, the boot's toe
+   rotation that faces the left foot forward pointed the naively-mirrored right
+   boot's toe **backward** — confirmed both by matrix algebra and by an isolated
+   top-down render of the boot mesh before wiring it in. (An earlier pass of this
+   fix only negated Z; re-verified against the antenna_scout Y-lean afterward —
+   still correct, because a thin antenna stalk is nearly rotationally symmetric
+   about its own axis, which had been masking the missing Y negation.)
+2. **A flat z-plane cut through organic, non-flat mesh geometry leaves stray
+   flaps.** The yarn-textured shin isn't a smooth cylinder, so a single global
+   `z_max` leaves a few low points not caught by the average cutoff, visible as
+   small ragged flaps past the boot cuff. Fixed by widening/raising the window
+   until the flaps were minimal — a **very small** residual flap can still peek
+   out on the inner-facing side of each leg in some views. Documented and
+   accepted rather than chased further, the same way Phase A documented the
+   belt-charm's stray chain-link fragment rather than fully solving it: both are
+   inherent AI-reconstruction/flat-cut artifacts, not code bugs.
+
+**Fit values were derived, not eyeballed, where the math was tractable:**
+- Boot yaw (`rotation_deg` z=-90): found by rendering the isolated boot mesh from
+  directly above at four candidate yaws and reading which one pointed the toe
+  toward the character's front (-Y).
+- Hand orientation (`rotation_deg` = computed Euler): the fist's local knuckle
+  direction (-Y, read off isolated front/side renders) needs to end up along the
+  `Hand.L` bone's actual head→tail direction (mostly -Z/down with some +X/outward,
+  matching the A-pose forearm) — computed exactly with
+  `mathutils.Vector.rotation_difference()` rather than guessed by eye, and it
+  produced a correctly-angled fist on the **first** real-pipeline render.
+
+Both traits are wired into the `pilot` preset only for now (not `variant_b`/`_c`)
+— `variant_c`'s watering can holds in the hand, and a closed-fist replacement
+mesh's visual compatibility with a held item hasn't been checked yet.
+
 ### Not yet built (future builder work)
-- **Boots + hands as mesh-swaps** (§5): unlike socketed props, these replace base
-  geometry, so they need a different mount path in the assembler (skinned part swap,
-  not object-parent).
+- **More boot/hand options**: only one pick exists per slot so far (matching how
+  Phase A proved one option per slot before Phase B scaled to three) — the
+  mechanism is proven, the library isn't.
+- **Boots/hands + a held item in the same preset**: needs a look at whether a
+  closed-fist hand mesh reads correctly around a handheld prop (`variant_c`).
 - **Theme material-swap** (§7): yarn/accent color is a material change, not a mesh —
   a `theme` field already tags each trait; the assembler doesn't yet apply a palette.
 - **Compatibility / rarity rules** (build-order step 8): the data layer that says
