@@ -109,6 +109,54 @@ def rgb_to_hsv_arrays(a):
     return hue, sat, mx
 
 
+def enhance_yarn(src, mask):
+    """Strand-definition pass inside the yarn mask: wide-radius local contrast
+    separates the plies, and pixels darker than their neighborhood (the
+    grooves between strands) are pushed further down — the braid reads as
+    clearly partitioned strands instead of soft lumps."""
+    a = np.asarray(src).astype(np.float32) / 255
+    m = (np.asarray(mask).astype(np.float32) / 255)[..., None]
+    blur = np.asarray(src.filter(ImageFilter.GaussianBlur(6))).astype(np.float32) / 255
+    boosted = np.clip(blur + (a - blur) * 2.2, 0, 1)
+    groove = np.clip((blur.mean(-1, keepdims=True) - a.mean(-1, keepdims=True)) * 3.0, 0, 1)
+    boosted = boosted * (1 - groove * 0.45)
+    out = a * (1 - m) + boosted * m
+    return Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8))
+
+
+def extract_normal(glb_path):
+    """Return (PIL.Image normal map, found) from material 0, or (None, False)."""
+    data = open(glb_path, "rb").read()
+    jlen = struct.unpack("<I", data[12:16])[0]
+    gltf = json.loads(data[20:20 + jlen])
+    bstart = 20 + jlen + 8
+    mat = gltf["materials"][0]
+    if "normalTexture" not in mat:
+        return None, False
+    img_i = gltf["textures"][mat["normalTexture"]["index"]]["source"]
+    bv = gltf["bufferViews"][gltf["images"][img_i]["bufferView"]]
+    off = bstart + bv.get("byteOffset", 0)
+    raw = data[off:off + bv["byteLength"]]
+    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+        f.write(raw)
+        tmp = f.name
+    pil = Image.open(tmp).convert("RGB")
+    pil.load()
+    os.unlink(tmp)
+    return pil, True
+
+
+def amplify_normal(nm, mask, amp=2.0):
+    """Steepen normal-map slopes inside the yarn mask so strand grooves catch
+    light — the geometry doesn't change, but each ply shades individually."""
+    n = np.asarray(nm).astype(np.float32) / 255 * 2 - 1
+    m = np.asarray(mask.resize(nm.size, Image.BILINEAR)).astype(np.float32)[..., None] / 255
+    n[..., 0] *= (1 + (amp - 1) * m[..., 0])
+    n[..., 1] *= (1 + (amp - 1) * m[..., 0])
+    n /= np.sqrt((n ** 2).sum(-1, keepdims=True)).clip(1e-6)
+    return Image.fromarray(((n + 1) / 2 * 255).astype(np.uint8))
+
+
 def build_mask(src):
     """Hue-key crimson -> closed, feathered mask image (L, white = yarn)."""
     a = np.asarray(src).astype(np.float32) / 255.0
@@ -159,7 +207,14 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath={src!r})
 new_img = bpy.data.images.load({tex!r})
 new_img.name = "base_color_charcoal"
+nm_path = {nm!r}
+new_nm = None
+if nm_path:
+    new_nm = bpy.data.images.load(nm_path)
+    new_nm.name = "normal_yarn_amplified"
+    new_nm.colorspace_settings.name = "Non-Color"
 replaced = 0
+nm_replaced = 0
 for mat in bpy.data.materials:
     if not mat.use_nodes:
         continue
@@ -170,7 +225,11 @@ for mat in bpy.data.materials:
                         and link.to_socket.name == "Base Color"):
                     node.image = new_img
                     replaced += 1
-print(f"[reembed] baseColor nodes replaced: {{replaced}}")
+                if (new_nm is not None and link.from_node == node
+                        and link.to_node.type == "NORMAL_MAP"):
+                    node.image = new_nm
+                    nm_replaced += 1
+print(f"[reembed] baseColor nodes replaced: {{replaced}}, normal: {{nm_replaced}}")
 assert replaced >= 1, "no Base Color texture node found"
 bpy.ops.export_scene.gltf(filepath={dst!r}, export_format="GLB",
                           export_yup=True, export_apply=False)
@@ -197,6 +256,18 @@ def main():
                  "- hue window needs retuning for this texture")
     mask.save(os.path.join(TEX_DIR, "yarn_mask.png"))
 
+    # strand definition BEFORE recoloring, so the charcoal default and every
+    # colorway inherit the partitioned-braid look
+    src = enhance_yarn(src, mask)
+    print("[colorways] yarn strand-definition pass applied")
+    nm, has_nm = extract_normal(raw_glb)
+    nm_path = None
+    if has_nm:
+        nm_amp = amplify_normal(nm, mask)
+        nm_path = os.path.join(TEX_DIR, "normal_yarn_amplified.png")
+        nm_amp.save(nm_path)
+        print("[colorways] normal map amplified in yarn region")
+
     manifest_entries = []
     for cw_id, label, hex_color, sat in COLORWAYS:
         full = src if hex_color is None else recolor(src, mask, hex_color, sat)
@@ -219,6 +290,7 @@ def main():
     script = REEMBED_TEMPLATE.format(
         src=raw_glb,
         tex=os.path.join(TEX_DIR, "base_color_charcoal.png"),
+        nm=nm_path,
         dst=CANONICAL_GLB)
     with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as f:
         f.write(script)
