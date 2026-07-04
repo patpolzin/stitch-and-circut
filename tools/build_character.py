@@ -92,25 +92,57 @@ def hide_mesh_region(body_obj, region, mirror_x):
     right. Runs on the imported base mesh in memory only — the committed base
     GLB is never touched."""
     import bmesh
-    x_lo, x_hi = region["x_min"], region["x_max"]
-    if mirror_x:
-        x_lo, x_hi = -x_hi, -x_lo
-    z_max = region.get("z_max")
+    import mathutils
+    # a region is one primary window plus optional `extra` windows (same
+    # format, also left-side coordinates, also mirrored) for geometry the
+    # primary box can't isolate — e.g. the v2 inner-thigh drape whose ragged
+    # cut boundary would hang in the between-legs gap above the boot cuff.
+    windows = [region] + list(region.get("extra", ()))
+    boxes = []
+    for w in windows:
+        x_lo, x_hi = w["x_min"], w["x_max"]
+        if mirror_x:
+            x_lo, x_hi = -x_hi, -x_lo
+        boxes.append((x_lo, x_hi, w.get("z_max")))
 
     bm = bmesh.new()
     bm.from_mesh(body_obj.data)
+
+    # Pre-slice the mesh with a clean plane at every window boundary so the
+    # deletion edge is a straight line instead of the ragged zigzag left by
+    # deleting whole vertices out of coarse triangles (v2 base: torn flaps
+    # hung visibly above the boot cuffs / in the between-legs gap without it).
+    inv = body_obj.matrix_world.inverted()
+    planes = []
+    for x_lo, x_hi, z_max in boxes:
+        planes.append(((x_lo, 0, 0), (1, 0, 0)))
+        planes.append(((x_hi, 0, 0), (1, 0, 0)))
+        if z_max is not None:
+            planes.append(((0, 0, z_max), (0, 0, 1)))
+    for co_w, no_w in planes:
+        co_l = inv @ mathutils.Vector(co_w)
+        no_l = (inv.to_3x3() @ mathutils.Vector(no_w))
+        bmesh.ops.bisect_plane(
+            bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:],
+            plane_co=co_l, plane_no=no_l,
+            clear_inner=False, clear_outer=False)
+
     bm.verts.ensure_lookup_table()
+    eps = 1e-4
     to_delete = []
     for v in bm.verts:
         co = body_obj.matrix_world @ v.co
-        if x_lo <= co.x <= x_hi and (z_max is None or co.z <= z_max):
+        if any(x_lo + eps < co.x < x_hi - eps
+               and (z_max is None or co.z < z_max - eps)
+               for x_lo, x_hi, z_max in boxes):
             to_delete.append(v)
     bmesh.ops.delete(bm, geom=to_delete, context='VERTS')
     bm.to_mesh(body_obj.data)
     bm.free()
     body_obj.data.update()
-    print(f"[build] hid mesh_region x=[{x_lo:.3f},{x_hi:.3f}]"
-          f"{f' z<={z_max:.3f}' if z_max is not None else ''}: {len(to_delete)} verts removed")
+    desc = " + ".join(f"x=[{a:.3f},{b:.3f}]{f' z<={z:.3f}' if z is not None else ''}"
+                      for a, b, z in boxes)
+    print(f"[build] hid mesh_region {desc}: {len(to_delete)} verts removed")
 
 
 def fit_instruction(instr, body_obj=None, armature_obj=None, hidden=None):

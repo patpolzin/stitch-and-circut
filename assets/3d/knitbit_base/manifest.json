@@ -1,339 +1,580 @@
 {
-  "schema_version": 1,
-  "description": "Canonical KnitBit character-builder manifest. Single source of truth for the base rig, every trait's source mesh + fit transform, and the named preset loadouts. Read by tools/knitbit_manifest.py (pure Python), tools/build_character.py (Blender assembler), and tools/fit_traits.py. See docs/KnitBit-Base-Spec.md sections 4-6.",
-
-  "base": {
-    "rig": "knitbit_base_rigged.glb",
-    "comment": "char_height / half_width come from the base mesh bounds printed by tools/rig_knitbit.py (min=(-0.738,-0.371,-0.957) max=(0.733,0.373,0.954), Blender Z-up). All fit.scale values are fractions of char_height; fit.offset_frac is in socket-local space, also as fractions of char_height.",
-    "char_height": 1.911,
-    "half_width": 0.735
+ "schema_version": 1,
+ "description": "Canonical KnitBit character-builder manifest. Single source of truth for the base rig, every trait's source mesh + fit transform, and the named preset loadouts. Read by tools/knitbit_manifest.py (pure Python), tools/build_character.py (Blender assembler), and tools/fit_traits.py. See docs/KnitBit-Base-Spec.md sections 4-6.",
+ "base": {
+  "rig": "knitbit_base_rigged.glb",
+  "comment": "char_height / half_width come from the base mesh bounds printed by tools/rig_knitbit.py (v2 base: min=(-0.659,-0.373,-0.957) max=(0.657,0.374,0.955), Blender Z-up). All fit.scale values are fractions of char_height; fit.offset_frac is in socket-local space, also as fractions of char_height.",
+  "char_height": 1.912,
+  "half_width": 0.658
+ },
+ "sockets": [
+  "socket_head_top_center",
+  "socket_head_left_antenna",
+  "socket_head_right_antenna",
+  "socket_head_left_side",
+  "socket_head_right_side",
+  "socket_faceplate",
+  "socket_chest_center",
+  "socket_belt_front",
+  "socket_belt_left",
+  "socket_belt_right",
+  "socket_back_center",
+  "socket_left_hand_grip",
+  "socket_right_hand_grip",
+  "socket_left_boot_front",
+  "socket_right_boot_front"
+ ],
+ "mesh_regions": {
+  "_comment": "Absolute base-mesh vertex windows (same coordinate space as base.char_height/half_width) used to HIDE base geometry for a mount:limb_pair trait with a `hides` region \u2014 this is what makes boots/hands a true mesh-SWAP instead of a socketed overlay (no double-boot/double-hand). Measured once by probing knitbit_base_rigged.glb's vertex positions per limb (see docs/KnitBit-Base-Spec.md section 10). Windows are given for the LEFT (+x) side; the RIGHT side mirrors by negating x_min/x_max. build_character.py deletes any base vertex whose (x, z) falls inside the window via bmesh before mounting the replacement mesh \u2014 additive at build time, the committed base GLB is never modified.",
+  "foot": {
+   "x_min": 0.0,
+   "x_max": 0.46,
+   "z_max": -0.5,
+   "comment": "Isolates the base's entire sculpted boot for the mesh-swap. v2 probe: the leg's narrow waist is z -0.48..-0.52 (x_max ~0.25); the base boot-top flare starts at ~-0.54 and the knee plate ends by -0.46. Cutting at -0.50 removes the whole sculpted boot; the replacement boot at scale 0.26 (cuff top ~-0.46) covers the cut edge. Cut must stay within the narrow waist band or base boot flare pokes past the prop cuff (seen at -0.56 and -0.60)."
   },
-
-  "sockets": [
-    "socket_head_top_center",
-    "socket_head_left_antenna",
-    "socket_head_right_antenna",
-    "socket_head_left_side",
-    "socket_head_right_side",
-    "socket_faceplate",
-    "socket_chest_center",
-    "socket_belt_front",
-    "socket_belt_left",
-    "socket_belt_right",
-    "socket_back_center",
-    "socket_left_hand_grip",
-    "socket_right_hand_grip",
-    "socket_left_boot_front",
-    "socket_right_boot_front"
-  ],
-
-  "mesh_regions": {
-    "_comment": "Absolute base-mesh vertex windows (same coordinate space as base.char_height/half_width) used to HIDE base geometry for a mount:limb_pair trait with a `hides` region — this is what makes boots/hands a true mesh-SWAP instead of a socketed overlay (no double-boot/double-hand). Measured once by probing knitbit_base_rigged.glb's vertex positions per limb (see docs/KnitBit-Base-Spec.md section 10). Windows are given for the LEFT (+x) side; the RIGHT side mirrors by negating x_min/x_max. build_character.py deletes any base vertex whose (x, z) falls inside the window via bmesh before mounting the replacement mesh — additive at build time, the committed base GLB is never modified.",
-    "foot": {
-      "x_min": 0.0, "x_max": 0.46, "z_max": -0.56,
-      "comment": "Isolates the boot region up through the lower shin. Widened/raised from the first pass (x_min 0.02->0.0, z_max -0.689->-0.56) after fitting a real replacement boot: a flat z-plane cut through the organic, non-cylindrical yarn-textured shin leaves a few small stray flaps below the average cutoff (the surface isn't flat), and the tighter window left them poking out past the boot cuff. This window clears them; a very minor residual flap can still peek out on the inner-facing side of each leg in some views — a known, accepted artifact of flat-plane cuts through organic reconstructed geometry (same class of issue as the Phase A belt-charm stray chain link)."
-    },
-    "hand": {
-      "x_min": 0.50, "x_max": 0.80,
-      "comment": "No z bound needed: in the A-pose this x-band contains ONLY the hand/fist (probed z range -0.480..-0.105) — nothing else in the mesh reaches that far out in x at any height, so the x-band alone cleanly isolates it from the forearm."
-    }
-  },
-
-  "slots": {
-    "antenna": {
-      "label": "Antenna",
-      "comment": "mount:antenna_pair traits fit on socket_head_left_antenna + socket_head_right_antenna (right mirrored on x)."
-    },
-    "helmet_panel": {
-      "label": "Head Top Panel",
-      "comment": "Low-profile surface detail on socket_head_top_center only. Never dome/helmet geometry (the head IS the helmet, spec section 1)."
-    },
-    "chest_icon": { "label": "Chest Icon" },
-    "belt_charm": {
-      "label": "Belt Charm",
-      "comment": "All belt charms share a fit.offset_frac that hangs them off the belt on the character's RIGHT hip (toward socket_belt_right at x=-0.234, ~87% of the way; character's right = -x), with the hook clipped onto the belt band and the body dangling FREELY below, clear of the thigh. The offset: -x toward the right hip (away from center-front), -y just proud enough to clear the thigh's forward bulge (leg front ~-0.154 below the belt), +z so the hanger ring clips onto the belt band's edge rather than floating below it or riding above it. Identical across charms so the placement reads consistently.",
-      "dynamic": {
-        "comment": "Belt charms are a DYNAMIC (free-hanging) attachment: the runtime should swing them as a pendulum about the hook when the character moves. build_character.py sets the charm node's origin to the hook (top-center) and writes these params to the node's glTF extras (knitbit_* keys) so the engine's spring/verlet system (see game/lib/physics/verlet_rope.dart) can drive it. Static preview renders show the rest pose; the swing itself is runtime.",
-        "pivot": "hook_top",
-        "attach_bone": "Hips",
-        "type": "pendulum",
-        "stiffness": 0.12,
-        "damping": 0.85,
-        "max_angle_deg": 22,
-        "axes": ["x", "y"]
-      }
-    },
-    "accessory": {
-      "label": "Accessory",
-      "comment": "Each accessory carries its own socket (backpack -> back_center, headphones -> head_top_center, watering can -> right_hand_grip)."
-    },
-    "boots": {
-      "label": "Boots",
-      "comment": "TRUE MESH-SWAP (spec section 5's 'Skinned / mesh-swapped lower-leg + foot part'), not a socketed overlay: mount:limb_pair with hides:'foot' deletes the base's own boot geometry (mesh_regions.foot) before attaching the replacement, mirrored L/R, at the Foot.L/Foot.R bone heads. Without the hide, the base's baked-in boot would double up with the new one (same class of bug as the original helmet-on-helmet issue)."
-    },
-    "hands": {
-      "label": "Hands",
-      "comment": "TRUE MESH-SWAP, same mechanism as boots: mount:limb_pair with hides:'hand' deletes the base's own hand geometry (mesh_regions.hand) before attaching the replacement at the Hand.L/Hand.R bone heads."
-    }
-  },
-
-  "themes": {
-    "_comment": "The spec-section-7 theme legend as data. Neutral base = charcoal yarn; each theme is produced later by a yarn material-swap to `accent` plus theme-specific accessories. `accent` doubles as the label/generation reference color and drives the Master Trait Diagram swatches. Each trait carries a `theme` tag keyed to these.",
-    "neutral": { "label": "Neutral / Base", "accent": "#C9CDD2", "accent2": null, "yarn": "charcoal" },
-    "scout":   { "label": "Scout",   "accent": "#1FA6A0", "accent2": null },
-    "tank":    { "label": "Tank",    "accent": "#C4622D", "accent2": null },
-    "arcade":  { "label": "Arcade",  "accent": "#FF2D95", "accent2": null },
-    "maker":   { "label": "Maker",   "accent": "#E7B416", "accent2": null },
-    "wizard":  { "label": "Wizard",  "accent": "#7A3FC4", "accent2": null },
-    "music":   { "label": "Music",   "accent": "#2D7DFF", "accent2": null },
-    "ghost":   { "label": "Ghost",   "accent": "#7FE0D4", "accent2": null },
-    "pixel":   { "label": "Pixel",   "accent": "#38E655", "accent2": null },
-    "garden":  { "label": "Garden",  "accent": "#4FA82E", "accent2": "#F06FA0" }
-  },
-
-  "traits": [
-    {
-      "id": "antenna_classic",
-      "slot": "antenna",
-      "label": "Classic Bulb",
-      "theme": "neutral",
-      "phase": "A",
-      "file": "traits/pilot/antenna.glb",
-      "mount": "antenna_pair",
-      "socket": null,
-      "fit": { "scale": 0.10, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
-    },
-    {
-      "id": "antenna_scout",
-      "slot": "antenna",
-      "label": "Scout Camera",
-      "theme": "scout",
-      "phase": "B",
-      "file": "traits/pilot/antenna_scout.glb",
-      "mount": "antenna_pair",
-      "socket": null,
-      "note": "20-deg outward (Y) lean + 0.13 scale keep the camera modules off the base's baked-in antenna nubs and out of the variant_b headphone band. The lean is symmetric under the mirrored -x scale; an X tilt is not.",
-      "fit": { "scale": 0.13, "rotation_deg": [0, 20, 0], "offset_frac": [0, 0, 0] }
-    },
-    {
-      "id": "antenna_leaf",
-      "slot": "antenna",
-      "label": "Leaf Tip",
-      "theme": "garden",
-      "phase": "B",
-      "file": "traits/pilot/antenna_leaf.glb",
-      "mount": "antenna_pair",
-      "socket": null,
-      "note": "0.13 scale so the leaf tips clear the base's baked-in antenna nubs.",
-      "fit": { "scale": 0.13, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
-    },
-
-    {
-      "id": "panel_reinforced",
-      "slot": "helmet_panel",
-      "label": "Reinforced",
-      "theme": "neutral",
-      "phase": "A",
-      "file": "traits/pilot/helmet_panel.glb",
-      "mount": "socket",
-      "socket": "socket_head_top_center",
-      "note": "Small -0.01 z offset sinks the plate edges into the curved crown instead of hovering.",
-      "fit": { "scale": 0.15, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, -0.01] }
-    },
-    {
-      "id": "panel_smooth",
-      "slot": "helmet_panel",
-      "label": "Smooth",
-      "theme": "neutral",
-      "phase": "B",
-      "file": "traits/pilot/panel_smooth.glb",
-      "mount": "socket",
-      "socket": "socket_head_top_center",
-      "fit": { "scale": 0.15, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, -0.01] }
-    },
-    {
-      "id": "panel_yarn",
-      "slot": "helmet_panel",
-      "label": "Yarn Patch",
-      "theme": "garden",
-      "phase": "B",
-      "file": "traits/pilot/panel_yarn.glb",
-      "mount": "socket",
-      "socket": "socket_head_top_center",
-      "fit": { "scale": 0.15, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, -0.01] }
-    },
-
-    {
-      "id": "chest_star",
-      "slot": "chest_icon",
-      "label": "Star",
-      "theme": "neutral",
-      "phase": "A",
-      "file": "traits/pilot/chest_icon.glb",
-      "mount": "socket",
-      "socket": "socket_chest_center",
-      "fit": { "scale": 0.11, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
-    },
-    {
-      "id": "chest_wrench",
-      "slot": "chest_icon",
-      "label": "Wrench + Gear",
-      "theme": "maker",
-      "phase": "B",
-      "file": "traits/pilot/chest_wrench.glb",
-      "mount": "socket",
-      "socket": "socket_chest_center",
-      "fit": { "scale": 0.11, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
-    },
-    {
-      "id": "chest_leaf",
-      "slot": "chest_icon",
-      "label": "Leaf",
-      "theme": "garden",
-      "phase": "B",
-      "file": "traits/pilot/chest_leaf.glb",
-      "mount": "socket",
-      "socket": "socket_chest_center",
-      "note": "This badge reconstructed lying flat (emblem up) unlike the standing wrench badge, so it needs a real +90 X pitch to face the emblem front (verified against -90/180).",
-      "fit": { "scale": 0.11, "rotation_deg": [90, 0, 0], "offset_frac": [0, 0, 0] }
-    },
-
-    {
-      "id": "charm_gear",
-      "slot": "belt_charm",
-      "label": "Gear",
-      "theme": "neutral",
-      "phase": "A",
-      "file": "traits/pilot/belt_charm.glb",
-      "mount": "socket",
-      "socket": "socket_belt_front",
-      "note": "offset_frac hangs the charm on the front-right of the belt toward the right hip (see the belt_charm slot comment).",
-      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [-0.105, -0.01, -0.025] }
-    },
-    {
-      "id": "charm_coin",
-      "slot": "belt_charm",
-      "label": "Coin",
-      "theme": "maker",
-      "phase": "B",
-      "file": "traits/pilot/charm_coin.glb",
-      "mount": "socket",
-      "socket": "socket_belt_front",
-      "note": "offset_frac hangs the charm on the front-right of the belt toward the right hip (see the belt_charm slot comment).",
-      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [-0.105, -0.01, -0.025] }
-    },
-    {
-      "id": "charm_flower",
-      "slot": "belt_charm",
-      "label": "Flower",
-      "theme": "garden",
-      "phase": "B",
-      "file": "traits/pilot/charm_flower.glb",
-      "mount": "socket",
-      "socket": "socket_belt_front",
-      "note": "offset_frac hangs the charm on the front-right of the belt toward the right hip (see the belt_charm slot comment).",
-      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [-0.105, -0.01, -0.025] }
-    },
-
-    {
-      "id": "acc_backpack",
-      "slot": "accessory",
-      "label": "Backpack",
-      "theme": "neutral",
-      "phase": "A",
-      "file": "traits/pilot/backpack.glb",
-      "mount": "socket",
-      "socket": "socket_back_center",
-      "fit": { "scale": 0.42, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
-    },
-    {
-      "id": "acc_headphones",
-      "slot": "accessory",
-      "label": "Headphones",
-      "theme": "music",
-      "phase": "B",
-      "file": "traits/pilot/headphones.glb",
-      "mount": "socket",
-      "socket": "socket_head_top_center",
-      "note": "0.62 scale + higher mount (-0.11 z) so the band arcs above and around the antennae instead of slicing through them. Single band unit spanning both ear cups; an arched topper is low-profile, not dome geometry (spec section 1).",
-      "fit": { "scale": 0.62, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, -0.11] }
-    },
-    {
-      "id": "acc_watering_can",
-      "slot": "accessory",
-      "label": "Watering Can",
-      "theme": "garden",
-      "phase": "B",
-      "file": "traits/pilot/watering_can.glb",
-      "mount": "socket",
-      "socket": "socket_right_hand_grip",
-      "note": "First handheld: parents to a hand-grip socket rather than a surface socket.",
-      "fit": { "scale": 0.16, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
-    },
-
-    {
-      "id": "boot_classic",
-      "slot": "boots",
-      "label": "Classic",
-      "theme": "neutral",
-      "phase": "A",
-      "file": "traits/pilot/boot_classic.glb",
-      "mount": "limb_pair",
-      "attach_bone": "Foot",
-      "hides": "foot",
-      "note": "Toe reconstructed along the mesh's own local X; rotation_deg z=-90 turns it to face -Y (character forward). Verified with a top-down isolated render before wiring in (a yaw is NOT symmetric under mirror_x the way a Y-lean is — see build_character.py's fit_instruction, which negates Y and Z for the mirrored instance so both boots face forward instead of the naive mirror pointing the right boot's toe backward). offset_frac.z raises the boot so its cuff meets the hidden shin cleanly.",
-      "fit": { "scale": 0.20, "rotation_deg": [0, 0, -90], "offset_frac": [0, 0, 0.15] }
-    },
-    {
-      "id": "hand_classic",
-      "slot": "hands",
-      "label": "Classic",
-      "theme": "neutral",
-      "phase": "A",
-      "file": "traits/pilot/hand_classic.glb",
-      "mount": "limb_pair",
-      "attach_bone": "Hand",
-      "hides": "hand",
-      "note": "rotation_deg computed with mathutils Vector.rotation_difference(), aligning the fist's local knuckle direction (-Y) to the Hand.L bone's actual head->tail direction (mostly -Z/down with some +X/outward, matching the A-pose forearm) rather than guessed by eye. offset_frac seats the wrist cap against the hidden forearm stump: like the boot, the Hand.L bone head sits INSIDE the hidden mesh_regions.hand window (x=0.689 is well within [0.5,0.8]), so the visible stump ends noticeably further back (toward the elbow) than the bone head itself, not at it. The needed offset was measured numerically (not eyeballed): found the remaining stump vertices closest to the bone's own axis line after hiding, and the hand mesh's own wrist-face position for several candidate offsets, and picked the offset where they meet -- an earlier small, wrong-signed nudge (toward the fingers instead of the elbow) left both hands visibly floating off the arms.",
-      "fit": { "scale": 0.20, "rotation_deg": [73.86, -25.68, 33.74], "offset_frac": [-0.05, 0, 0.0866] }
-    }
-  ],
-
-  "presets": {
-    "pilot": {
-      "label": "Pilot (Phase A picks)",
-      "preview_stem": "knitbit_pilot_preview",
-      "loadout": {
-        "antenna": "antenna_classic",
-        "helmet_panel": "panel_reinforced",
-        "chest_icon": "chest_star",
-        "belt_charm": "charm_gear",
-        "accessory": "acc_backpack",
-        "boots": "boot_classic",
-        "hands": "hand_classic"
-      }
-    },
-    "variant_b": {
-      "label": "Tech",
-      "preview_stem": "knitbit_pilot_preview_b",
-      "loadout": {
-        "antenna": "antenna_scout",
-        "helmet_panel": "panel_smooth",
-        "chest_icon": "chest_wrench",
-        "belt_charm": "charm_coin",
-        "accessory": "acc_headphones"
-      }
-    },
-    "variant_c": {
-      "label": "Garden",
-      "preview_stem": "knitbit_pilot_preview_c",
-      "loadout": {
-        "antenna": "antenna_leaf",
-        "helmet_panel": "panel_yarn",
-        "chest_icon": "chest_leaf",
-        "belt_charm": "charm_flower",
-        "accessory": "acc_watering_can"
-      }
-    }
+  "hand": {
+   "x_min": 0.55,
+   "x_max": 0.8,
+   "comment": "No z bound needed: in the A-pose this x-band contains ONLY the hand/fist (v2 base probed z range -0.563..-0.136). x_min raised 0.5->0.55 for the v2 base because its head ear plates reach |x|=0.521 at z_frac 0.70-0.80 and would otherwise fall inside the band."
   }
+ },
+ "slots": {
+  "antenna": {
+   "label": "Antenna",
+   "comment": "mount:antenna_pair traits fit on socket_head_left_antenna + socket_head_right_antenna (right mirrored on x)."
+  },
+  "helmet_panel": {
+   "label": "Head Top Panel",
+   "comment": "Low-profile surface detail on socket_head_top_center only. Never dome/helmet geometry (the head IS the helmet, spec section 1)."
+  },
+  "chest_icon": {
+   "label": "Chest Icon"
+  },
+  "belt_charm": {
+   "label": "Belt Charm",
+   "comment": "All belt charms share a fit.offset_frac that hangs them off the belt on the character's RIGHT hip (toward socket_belt_right at x=-0.234, ~87% of the way; character's right = -x), with the hook clipped onto the belt band and the body dangling FREELY below, clear of the thigh. The offset: -x toward the right hip (away from center-front), -y just proud enough to clear the thigh's forward bulge (leg front ~-0.154 below the belt), +z so the hanger ring clips onto the belt band's edge rather than floating below it or riding above it. Identical across charms so the placement reads consistently.",
+   "dynamic": {
+    "comment": "Belt charms are a DYNAMIC (free-hanging) attachment: the runtime should swing them as a pendulum about the hook when the character moves. build_character.py sets the charm node's origin to the hook (top-center) and writes these params to the node's glTF extras (knitbit_* keys) so the engine's spring/verlet system (see game/lib/physics/verlet_rope.dart) can drive it. Static preview renders show the rest pose; the swing itself is runtime.",
+    "pivot": "hook_top",
+    "attach_bone": "Hips",
+    "type": "pendulum",
+    "stiffness": 0.12,
+    "damping": 0.85,
+    "max_angle_deg": 22,
+    "axes": [
+     "x",
+     "y"
+    ]
+   }
+  },
+  "accessory": {
+   "label": "Accessory",
+   "comment": "Each accessory carries its own socket (backpack -> back_center, headphones -> head_top_center, watering can -> right_hand_grip)."
+  },
+  "boots": {
+   "label": "Boots",
+   "comment": "TRUE MESH-SWAP (spec section 5's 'Skinned / mesh-swapped lower-leg + foot part'), not a socketed overlay: mount:limb_pair with hides:'foot' deletes the base's own boot geometry (mesh_regions.foot) before attaching the replacement, mirrored L/R, at the Foot.L/Foot.R bone heads. Without the hide, the base's baked-in boot would double up with the new one (same class of bug as the original helmet-on-helmet issue)."
+  },
+  "hands": {
+   "label": "Hands",
+   "comment": "TRUE MESH-SWAP, same mechanism as boots: mount:limb_pair with hides:'hand' deletes the base's own hand geometry (mesh_regions.hand) before attaching the replacement at the Hand.L/Hand.R bone heads."
+  }
+ },
+ "themes": {
+  "_comment": "The spec-section-7 theme legend as data. Neutral base = charcoal yarn; each theme is produced later by a yarn material-swap to `accent` plus theme-specific accessories. `accent` doubles as the label/generation reference color and drives the Master Trait Diagram swatches. Each trait carries a `theme` tag keyed to these.",
+  "neutral": {
+   "label": "Neutral / Base",
+   "accent": "#C9CDD2",
+   "accent2": null,
+   "yarn": "charcoal"
+  },
+  "scout": {
+   "label": "Scout",
+   "accent": "#1FA6A0",
+   "accent2": null
+  },
+  "tank": {
+   "label": "Tank",
+   "accent": "#C4622D",
+   "accent2": null
+  },
+  "arcade": {
+   "label": "Arcade",
+   "accent": "#FF2D95",
+   "accent2": null
+  },
+  "maker": {
+   "label": "Maker",
+   "accent": "#E7B416",
+   "accent2": null
+  },
+  "wizard": {
+   "label": "Wizard",
+   "accent": "#7A3FC4",
+   "accent2": null
+  },
+  "music": {
+   "label": "Music",
+   "accent": "#2D7DFF",
+   "accent2": null
+  },
+  "ghost": {
+   "label": "Ghost",
+   "accent": "#7FE0D4",
+   "accent2": null
+  },
+  "pixel": {
+   "label": "Pixel",
+   "accent": "#38E655",
+   "accent2": null
+  },
+  "garden": {
+   "label": "Garden",
+   "accent": "#4FA82E",
+   "accent2": "#F06FA0"
+  }
+ },
+ "traits": [
+  {
+   "id": "antenna_classic",
+   "slot": "antenna",
+   "label": "Classic Bulb",
+   "theme": "neutral",
+   "phase": "A",
+   "file": "traits/pilot/antenna.glb",
+   "mount": "antenna_pair",
+   "socket": null,
+   "fit": {
+    "scale": 0.1,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "id": "antenna_scout",
+   "slot": "antenna",
+   "label": "Scout Camera",
+   "theme": "scout",
+   "phase": "B",
+   "file": "traits/pilot/antenna_scout.glb",
+   "mount": "antenna_pair",
+   "socket": null,
+   "note": "20-deg outward (Y) lean + 0.13 scale keep the camera modules off the base's baked-in antenna nubs and out of the variant_b headphone band. The lean is symmetric under the mirrored -x scale; an X tilt is not.",
+   "fit": {
+    "scale": 0.13,
+    "rotation_deg": [
+     0,
+     20,
+     0
+    ],
+    "offset_frac": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "id": "antenna_leaf",
+   "slot": "antenna",
+   "label": "Leaf Tip",
+   "theme": "garden",
+   "phase": "B",
+   "file": "traits/pilot/antenna_leaf.glb",
+   "mount": "antenna_pair",
+   "socket": null,
+   "note": "0.13 scale so the leaf tips clear the base's baked-in antenna nubs.",
+   "fit": {
+    "scale": 0.13,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "id": "panel_reinforced",
+   "slot": "helmet_panel",
+   "label": "Reinforced",
+   "theme": "neutral",
+   "phase": "A",
+   "file": "traits/pilot/helmet_panel.glb",
+   "mount": "socket",
+   "socket": "socket_head_top_center",
+   "note": "Small -0.01 z offset sinks the plate edges into the curved crown instead of hovering.",
+   "fit": {
+    "scale": 0.15,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     0,
+     0,
+     -0.01
+    ]
+   }
+  },
+  {
+   "id": "panel_smooth",
+   "slot": "helmet_panel",
+   "label": "Smooth",
+   "theme": "neutral",
+   "phase": "B",
+   "file": "traits/pilot/panel_smooth.glb",
+   "mount": "socket",
+   "socket": "socket_head_top_center",
+   "fit": {
+    "scale": 0.15,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     0,
+     0,
+     -0.01
+    ]
+   }
+  },
+  {
+   "id": "panel_yarn",
+   "slot": "helmet_panel",
+   "label": "Yarn Patch",
+   "theme": "garden",
+   "phase": "B",
+   "file": "traits/pilot/panel_yarn.glb",
+   "mount": "socket",
+   "socket": "socket_head_top_center",
+   "fit": {
+    "scale": 0.15,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     0,
+     0,
+     -0.01
+    ]
+   }
+  },
+  {
+   "id": "chest_star",
+   "slot": "chest_icon",
+   "label": "Star",
+   "theme": "neutral",
+   "phase": "A",
+   "file": "traits/pilot/chest_icon.glb",
+   "mount": "socket",
+   "socket": "socket_chest_center",
+   "fit": {
+    "scale": 0.11,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "id": "chest_wrench",
+   "slot": "chest_icon",
+   "label": "Wrench + Gear",
+   "theme": "maker",
+   "phase": "B",
+   "file": "traits/pilot/chest_wrench.glb",
+   "mount": "socket",
+   "socket": "socket_chest_center",
+   "fit": {
+    "scale": 0.11,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "id": "chest_leaf",
+   "slot": "chest_icon",
+   "label": "Leaf",
+   "theme": "garden",
+   "phase": "B",
+   "file": "traits/pilot/chest_leaf.glb",
+   "mount": "socket",
+   "socket": "socket_chest_center",
+   "note": "This badge reconstructed lying flat (emblem up) unlike the standing wrench badge, so it needs a real +90 X pitch to face the emblem front (verified against -90/180).",
+   "fit": {
+    "scale": 0.11,
+    "rotation_deg": [
+     90,
+     0,
+     0
+    ],
+    "offset_frac": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "id": "charm_gear",
+   "slot": "belt_charm",
+   "label": "Gear",
+   "theme": "neutral",
+   "phase": "A",
+   "file": "traits/pilot/belt_charm.glb",
+   "mount": "socket",
+   "socket": "socket_belt_front",
+   "note": "offset_frac hangs the charm on the front-right of the belt toward the right hip (see the belt_charm slot comment). v2 retune: hook raised +0.04 world z and pushed +0.025 toward the body so the ring top visibly overlaps the belt band instead of floating in front of it.",
+   "fit": {
+    "scale": 0.09,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     -0.095,
+     0.0051,
+     0.0269
+    ]
+   }
+  },
+  {
+   "id": "charm_coin",
+   "slot": "belt_charm",
+   "label": "Coin",
+   "theme": "maker",
+   "phase": "B",
+   "file": "traits/pilot/charm_coin.glb",
+   "mount": "socket",
+   "socket": "socket_belt_front",
+   "note": "offset_frac hangs the charm on the front-right of the belt toward the right hip (see the belt_charm slot comment). v2 retune: hook raised +0.04 world z and pushed +0.025 toward the body so the ring top visibly overlaps the belt band instead of floating in front of it.",
+   "fit": {
+    "scale": 0.09,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     -0.095,
+     0.0051,
+     0.0269
+    ]
+   }
+  },
+  {
+   "id": "charm_flower",
+   "slot": "belt_charm",
+   "label": "Flower",
+   "theme": "garden",
+   "phase": "B",
+   "file": "traits/pilot/charm_flower.glb",
+   "mount": "socket",
+   "socket": "socket_belt_front",
+   "note": "offset_frac hangs the charm on the front-right of the belt toward the right hip (see the belt_charm slot comment). v2 retune: hook raised +0.04 world z and pushed +0.025 toward the body so the ring top visibly overlaps the belt band instead of floating in front of it.",
+   "fit": {
+    "scale": 0.09,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     -0.095,
+     0.0051,
+     0.0269
+    ]
+   }
+  },
+  {
+   "id": "acc_backpack",
+   "slot": "accessory",
+   "label": "Backpack",
+   "theme": "neutral",
+   "phase": "A",
+   "file": "traits/pilot/backpack.glb",
+   "mount": "socket",
+   "socket": "socket_back_center",
+   "fit": {
+    "scale": 0.42,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "id": "acc_headphones",
+   "slot": "accessory",
+   "label": "Headphones",
+   "theme": "music",
+   "phase": "B",
+   "file": "traits/pilot/headphones.glb",
+   "mount": "socket",
+   "socket": "socket_head_top_center",
+   "note": "v2 retune: scale 0.62->0.50 (user: too big) with z offset -0.10 so the band hugs the crown while clearing both antenna variants.",
+   "fit": {
+    "scale": 0.49,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     0,
+     0,
+     -0.105
+    ]
+   }
+  },
+  {
+   "id": "acc_watering_can",
+   "slot": "accessory",
+   "label": "Watering Can",
+   "theme": "garden",
+   "phase": "B",
+   "file": "traits/pilot/watering_can.glb",
+   "mount": "socket",
+   "socket": "socket_right_hand_grip",
+   "note": "First handheld: parents to a hand-grip socket rather than a surface socket.",
+   "fit": {
+    "scale": 0.16,
+    "rotation_deg": [
+     0,
+     0,
+     0
+    ],
+    "offset_frac": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "id": "boot_classic",
+   "slot": "boots",
+   "label": "Classic",
+   "theme": "neutral",
+   "phase": "A",
+   "file": "traits/pilot/boot_classic.glb",
+   "mount": "limb_pair",
+   "attach_bone": "Foot",
+   "hides": "foot",
+   "note": "v2 retune r3: scale 0.28 so the cuff top (~z -0.42) covers the ragged bmesh cut boundary, which zigzags up to ~-0.44 on the coarse inner-thigh triangulation. Offsets align the boot to the shin column (x 0.205, y 0.015) with the sole at ground level.",
+   "fit": {
+    "scale": 0.28,
+    "rotation_deg": [
+     0,
+     0,
+     90
+    ],
+    "offset_frac": [
+     0.0115,
+     0.0073,
+     0.0897
+    ]
+   }
+  },
+  {
+   "id": "hand_classic",
+   "slot": "hands",
+   "label": "Classic",
+   "theme": "neutral",
+   "phase": "A",
+   "file": "traits/pilot/hand_classic.glb",
+   "mount": "limb_pair",
+   "attach_bone": "Hand",
+   "hides": "hand",
+   "note": "v2 base retune: rotation re-derived from the new Hand.L bone dir (knuckle-local -Y -> bone head->tail), scale 0.2->0.16 for the slimmer v2 arm, offset re-measured so the mitt centroid covers the hidden hand blob centroid (0.596,-0.011,-0.454) instead of the forearm.",
+   "fit": {
+    "scale": 0.16,
+    "rotation_deg": [
+     76.67,
+     -24.06,
+     30.16
+    ],
+    "offset_frac": [
+     -0.021,
+     -0.009,
+     -0.028
+    ]
+   }
+  }
+ ],
+ "presets": {
+  "pilot": {
+   "label": "Pilot (Phase A picks)",
+   "preview_stem": "knitbit_pilot_preview",
+   "loadout": {
+    "antenna": "antenna_classic",
+    "helmet_panel": "panel_reinforced",
+    "chest_icon": "chest_star",
+    "belt_charm": "charm_gear",
+    "accessory": "acc_backpack",
+    "boots": "boot_classic",
+    "hands": "hand_classic"
+   }
+  },
+  "variant_b": {
+   "label": "Tech",
+   "preview_stem": "knitbit_pilot_preview_b",
+   "loadout": {
+    "antenna": "antenna_scout",
+    "helmet_panel": "panel_smooth",
+    "chest_icon": "chest_wrench",
+    "belt_charm": "charm_coin",
+    "accessory": "acc_headphones"
+   }
+  },
+  "variant_c": {
+   "label": "Garden",
+   "preview_stem": "knitbit_pilot_preview_c",
+   "loadout": {
+    "antenna": "antenna_leaf",
+    "helmet_panel": "panel_yarn",
+    "chest_icon": "chest_leaf",
+    "belt_charm": "charm_flower",
+    "accessory": "acc_watering_can"
+   }
+  }
+ }
 }
