@@ -468,41 +468,104 @@ def add_sockets(arm_obj, bounds, mesh_obj):
 # Idle animation (rig validation)
 # --------------------------------------------------------------------------- #
 
-def add_idle_animation(arm_obj):
-    """A minimal procedural idle loop (chest sway + counter head nod) purely to
-    exercise the rig end-to-end — proves the skeleton/skin deform without
-    breaking. Not meant as final animation quality."""
+def _author_clip(arm_obj, name, frames, keys):
+    """Author one procedural clip as its own Action and stash it on an NLA
+    track, so the glTF exporter emits it as a separate named animation (the
+    exporter exports every stashed track; a single active action would allow
+    only one clip per file).
+
+    keys: {bone_name: {"rot": [(frame, (x_deg, y_deg, z_deg)), ...],
+                       "loc": [(frame, (x, y, z)), ...]}}   (loc is bone-local)
+    """
     import math
 
-    scene = bpy.context.scene
-    scene.frame_start = 1
-    scene.frame_end = IDLE_FRAMES
-    scene.render.fps = IDLE_FPS
+    arm_obj.animation_data_create()
+    action = bpy.data.actions.new(name)
+    arm_obj.animation_data.action = action
 
     bpy.ops.object.select_all(action="DESELECT")
     arm_obj.select_set(True)
     bpy.context.view_layer.objects.active = arm_obj
     bpy.ops.object.mode_set(mode="POSE")
-
-    def kf(bone_name, frame, euler_deg):
-        pb = arm_obj.pose.bones[bone_name]
+    # clean slate: previous clip's pose must not bleed into this one
+    for pb in arm_obj.pose.bones:
         pb.rotation_mode = "XYZ"
-        pb.rotation_euler = tuple(math.radians(d) for d in euler_deg)
-        pb.keyframe_insert(data_path="rotation_euler", frame=frame)
+        pb.rotation_euler = (0, 0, 0)
+        pb.location = (0, 0, 0)
 
-    mid = IDLE_FRAMES // 2
-    kf("Chest", 1, (0, 0, 0))
-    kf("Chest", mid, (2, 0, 0))
-    kf("Chest", IDLE_FRAMES, (0, 0, 0))
-    kf("Head", 1, (0, 0, 0))
-    kf("Head", mid, (-1.5, 0, 0))
-    kf("Head", IDLE_FRAMES, (0, 0, 0))
+    for bone_name, channels in keys.items():
+        pb = arm_obj.pose.bones[bone_name]
+        for frame, euler_deg in channels.get("rot", []):
+            pb.rotation_euler = tuple(math.radians(d) for d in euler_deg)
+            pb.keyframe_insert(data_path="rotation_euler", frame=frame)
+        for frame, loc in channels.get("loc", []):
+            pb.location = loc
+            pb.keyframe_insert(data_path="location", frame=frame)
 
     bpy.ops.object.mode_set(mode="OBJECT")
-    if arm_obj.animation_data and arm_obj.animation_data.action:
-        arm_obj.animation_data.action.name = "Idle"
+    track = arm_obj.animation_data.nla_tracks.new()
+    track.name = name
+    track.strips.new(name, 1, action)
+    track.mute = True  # stashed, not playing; exporter still emits it
+    arm_obj.animation_data.action = None
+    print(f"[rig] authored clip '{name}' ({frames} frames)")
+
+
+def add_animation_clips(arm_obj):
+    """Light animation set for the platform: a richer Idle (weight shift +
+    chest sway + head counter-nod + subtle arm swing), a Wave (right arm lift
+    and wave), and a Bounce (springy hop). Procedural and modest by design —
+    'light animations' for the editor preview and game hand-off, not final
+    animation polish. All clips share frame 1 == rest so they blend cleanly."""
+    scene = bpy.context.scene
+    scene.render.fps = IDLE_FPS
+
+    # Idle: 60f/2s loop — weight shift through hips with counters up the spine
+    _author_clip(arm_obj, "Idle", 60, {
+        "Hips":  {"rot": [(1, (0, 0, 0)), (15, (0, 0, 2.0)), (30, (0, 0, 0)),
+                          (45, (0, 0, -2.0)), (60, (0, 0, 0))]},
+        "Chest": {"rot": [(1, (0, 0, 0)), (15, (1.5, 0, -1.0)), (30, (0, 0, 0)),
+                          (45, (1.5, 0, 1.0)), (60, (0, 0, 0))]},
+        "Head":  {"rot": [(1, (0, 0, 0)), (15, (-1.2, 0, -0.8)), (30, (0, 0, 0)),
+                          (45, (-1.2, 0, 0.8)), (60, (0, 0, 0))]},
+        "UpperArm.L": {"rot": [(1, (0, 0, 0)), (15, (1.5, 0, 0)), (30, (0, 0, 0)),
+                               (45, (-1.5, 0, 0)), (60, (0, 0, 0))]},
+        "UpperArm.R": {"rot": [(1, (0, 0, 0)), (15, (-1.5, 0, 0)), (30, (0, 0, 0)),
+                               (45, (1.5, 0, 0)), (60, (0, 0, 0))]},
+    })
+
+    # Wave: 45f/1.5s — raise the right arm and wave the forearm twice
+    _author_clip(arm_obj, "Wave", 45, {
+        "UpperArm.R": {"rot": [(1, (0, 0, 0)), (10, (0, 0, -75)), (35, (0, 0, -75)),
+                               (45, (0, 0, 0))]},
+        "LowerArm.R": {"rot": [(1, (0, 0, 0)), (10, (0, 0, -20)), (16, (0, 0, 20)),
+                               (22, (0, 0, -20)), (28, (0, 0, 20)), (35, (0, 0, -10)),
+                               (45, (0, 0, 0))]},
+        "Head":  {"rot": [(1, (0, 0, 0)), (10, (0, 0, 5)), (35, (0, 0, 5)),
+                          (45, (0, 0, 0))]},
+        "Chest": {"rot": [(1, (0, 0, 0)), (10, (0, 0, 3)), (35, (0, 0, 3)),
+                          (45, (0, 0, 0))]},
+    })
+
+    # Bounce: 30f/1s — springy hop: dip, rise past rest, land (Hips bone points
+    # up, so bone-local +Y is world-up)
+    _author_clip(arm_obj, "Bounce", 30, {
+        "Hips": {"loc": [(1, (0, 0, 0)), (8, (0, -0.05, 0)), (16, (0, 0.06, 0)),
+                         (24, (0, -0.02, 0)), (30, (0, 0, 0))],
+                 "rot": [(1, (0, 0, 0)), (8, (3, 0, 0)), (16, (-2, 0, 0)),
+                         (30, (0, 0, 0))]},
+        "UpperArm.L": {"rot": [(1, (0, 0, 0)), (8, (8, 0, 0)), (16, (-10, 0, 0)),
+                               (30, (0, 0, 0))]},
+        "UpperArm.R": {"rot": [(1, (0, 0, 0)), (8, (8, 0, 0)), (16, (-10, 0, 0)),
+                               (30, (0, 0, 0))]},
+        "Head": {"rot": [(1, (0, 0, 0)), (8, (2, 0, 0)), (16, (-3, 0, 0)),
+                         (30, (0, 0, 0))]},
+    })
+
+    scene.frame_start = 1
+    scene.frame_end = 60
     scene.frame_set(1)
-    print(f"[rig] added idle animation ({IDLE_FRAMES} frames @ {IDLE_FPS}fps)")
+    print(f"[rig] added 3 animation clips (Idle/Wave/Bounce) @ {IDLE_FPS}fps")
 
 
 # --------------------------------------------------------------------------- #
@@ -543,9 +606,9 @@ def main():
     add_sockets(arm_obj, bounds, mesh_obj)
     export(out_path)
 
-    add_idle_animation(arm_obj)
+    add_animation_clips(arm_obj)
     export(idle_out_path)
-    print(f"[rig] idle output: {idle_out_path}")
+    print(f"[rig] animated output: {idle_out_path}")
 
     print("[rig] done. Verify joint deformation in Blender; nudge LANDMARKS/HW if needed.")
 
