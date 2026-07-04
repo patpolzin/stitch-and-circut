@@ -246,7 +246,7 @@ def build_pieces():
     return piece_meta
 
 
-def write_manifest(parts, piece_meta):
+def write_manifest(parts, piece_meta, face_entries=None):
     slots = {}
     for key, slot in M["slots"].items():
         slots[key] = {"label": slot.get("label", key)}
@@ -285,12 +285,106 @@ def write_manifest(parts, piece_meta):
         "traits": traits,
         "themes": themes,
         "colorways": colorways,
+        "face": {"file": "face_screen.glb", "bone": "Head",
+                 "expressions": face_entries or []},
         "presets": {name: p["loadout"] for name, p in M["presets"].items()},
     }
     path = os.path.join(WEB, "manifest.web.json")
     with open(path, "w") as f:
         json.dump(out, f, indent=2)
     print(f"[web] wrote {path}")
+
+
+# face screen overlay: covers the baked-in static face so the editor (and any
+# runtime that loads it) can play the animated expression sprites on a live
+# texture. Rect probed from the v2 head: the CRT glass bulges forward across
+# x +/-0.270, z 0.235..0.660 - calibrated by flooding the overlay canvas magenta in the editor and reading the residuals against the bezel (the glass runs much higher than the eye glyphs suggest). The CRT glass curves back toward the bezel and the raycast follows it.
+FACE_RECT = {"x0": -0.270, "x1": 0.270, "z0": 0.235, "z1": 0.660}
+FACE_GRID = (44, 34)
+FACE_OFFSET = 0.006   # how far the overlay floats in front of the glass
+FACE_SRC = os.path.join(os.path.dirname(ASSET), "..", "2d", "knitbit_face", "normalized")
+
+
+def build_face_screen():
+    """Shrinkwrap a UV-gridded plane onto the faceplate glass and export it as
+    web/face_screen.glb (attach bone: Head). The editor drives its texture with
+    a canvas playing the expression sprites; rounded corners come from the
+    canvas alpha, so the mesh itself is a plain rectangle."""
+    import math
+    from mathutils.bvhtree import BVHTree
+    bc.clean_scene()
+    objs = bc.import_glb(IDLE_GLB)
+    body = bc.find_body(objs)
+    deps = bpy.context.evaluated_depsgraph_get()
+    bvh = BVHTree.FromObject(body, deps)
+
+    nx, nz = FACE_GRID
+    r = FACE_RECT
+    verts, uvs, faces = [], [], []
+    misses = 0
+    for j in range(nz):
+        for i in range(nx):
+            u, w = i / (nx - 1), j / (nz - 1)
+            x = r["x0"] + (r["x1"] - r["x0"]) * u
+            z = r["z0"] + (r["z1"] - r["z0"]) * w
+            hit = bvh.ray_cast(mathutils.Vector((x, -0.9, z)),
+                               mathutils.Vector((0, 1, 0)), 1.2)
+            if hit[0] is None:
+                misses += 1
+                y = -0.36
+            else:
+                y = hit[0].y
+            verts.append((x, y - FACE_OFFSET, z))
+            uvs.append((u, w))
+    for j in range(nz - 1):
+        for i in range(nx - 1):
+            a = j * nx + i
+            faces.append((a, a + 1, a + nx + 1, a + nx))
+
+    mesh = bpy.data.meshes.new("face_screen")
+    mesh.from_pydata(verts, [], faces)
+    uvl = mesh.uv_layers.new(name="UVMap")
+    for poly in mesh.polygons:
+        for li in poly.loop_indices:
+            uvl.data[li].uv = uvs[mesh.loops[li].vertex_index]
+    mesh.update()
+    obj = bpy.data.objects.new("face_screen", mesh)
+    bpy.context.collection.objects.link(obj)
+    mat = bpy.data.materials.new("FaceScreen")
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    if bsdf:
+        bsdf.inputs["Base Color"].default_value = (0, 0, 0, 1)
+        bsdf.inputs["Roughness"].default_value = 0.4
+    obj.data.materials.append(mat)
+    obj["knitbit_attach_bone"] = "Head"
+    for o in list(bpy.context.scene.objects):
+        if o is not obj:
+            bpy.data.objects.remove(o, do_unlink=True)
+    export_glb(os.path.join(WEB, "face_screen.glb"), animations=False,
+               selection=[obj])
+    print(f"[web] face_screen: {nx}x{nz} grid shrinkwrapped "
+          f"({misses} ray misses)")
+
+
+def copy_face_sprites():
+    """Copy the normalized expression sprites into web/face/ and return the
+    manifest entries. Order matches the BitExpression enum in the game."""
+    import shutil
+    order = ["idle", "happy", "thinking", "scared", "effort", "starEyes",
+             "confused", "lowBattery", "startled", "relieved"]
+    out_dir = os.path.join(WEB, "face")
+    os.makedirs(out_dir, exist_ok=True)
+    entries = []
+    for name in order:
+        src = os.path.join(FACE_SRC, name + ".png")
+        if not os.path.exists(src):
+            print(f"[web] WARNING: face sprite missing: {src}")
+            continue
+        shutil.copyfile(src, os.path.join(out_dir, name + ".png"))
+        entries.append({"id": name, "file": f"face/{name}.png"})
+    print(f"[web] face sprites: {len(entries)} copied")
+    return entries
 
 
 def main():
@@ -300,7 +394,9 @@ def main():
     os.makedirs(WEB, exist_ok=True)
     parts = build_base()
     piece_meta = build_pieces()
-    write_manifest(parts, piece_meta)
+    build_face_screen()
+    face_entries = copy_face_sprites()
+    write_manifest(parts, piece_meta, face_entries)
     print("[web] done.")
 
 

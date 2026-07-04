@@ -662,6 +662,22 @@ profile picture"** captures a square portrait and applies it to the profile
 widget (+ download). Run `python3 -m http.server` at the repo root and open
 `/demos/knitbit_builder.html`.
 
+**Animated face (editor).** The base texture's face is a static baked-in smile
+on fragmented UV islands, so expressions play on a separate **face_screen
+overlay**: `export_web_bundle.build_face_screen` shrinkwraps a 44×34 UV grid
+onto the CRT glass (raycast per vertex; rect x ±0.270, z 0.235..0.660,
+calibrated by flooding the overlay canvas a solid color in the editor and
+reading residuals against the bezel) and exports `web/face_screen.glb`
+(attach bone: Head). The editor drives it with a live canvas texture — black
+LED panel + faint grid + the §3a normalized expression sprites (copied to
+`web/face/`, listed in `manifest.web.json.face.expressions` in `BitExpression`
+enum order) — with 0.18 s crossfades, an automatic blink every 2.5–6 s (a
+0.13 s dip to `relieved`, whose closed-arc eyes read as a blink), and an
+EXPRESSION tile row in the panel. Because the overlay is part of the scene,
+the chosen expression appears in the PFP capture too. The sprite is drawn
+x-mirrored (the screen mesh's u axis runs along world +x, which the front
+camera sees right-to-left).
+
 v2 also hardens the failure modes behind the earlier "boots and gloves missing"
 report: piece/fetch failures show a visible error banner (plus an explicit
 "serve over http://" message under `file://`), bone lookups fall back to

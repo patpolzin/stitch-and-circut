@@ -433,6 +433,52 @@
       "file": "yarn_garden.jpg"
     }
   ],
+  "face": {
+    "file": "face_screen.glb",
+    "bone": "Head",
+    "expressions": [
+      {
+        "id": "idle",
+        "file": "face/idle.png"
+      },
+      {
+        "id": "happy",
+        "file": "face/happy.png"
+      },
+      {
+        "id": "thinking",
+        "file": "face/thinking.png"
+      },
+      {
+        "id": "scared",
+        "file": "face/scared.png"
+      },
+      {
+        "id": "effort",
+        "file": "face/effort.png"
+      },
+      {
+        "id": "starEyes",
+        "file": "face/starEyes.png"
+      },
+      {
+        "id": "confused",
+        "file": "face/confused.png"
+      },
+      {
+        "id": "lowBattery",
+        "file": "face/lowBattery.png"
+      },
+      {
+        "id": "startled",
+        "file": "face/startled.png"
+      },
+      {
+        "id": "relieved",
+        "file": "face/relieved.png"
+      }
+    ]
+  },
   "presets": {
     "pilot": {
       "antenna": "antenna_classic",

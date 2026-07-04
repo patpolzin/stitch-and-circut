@@ -52,6 +52,11 @@
   #anims button { flex:1; padding:7px 0; font-size:12px; border:1px solid var(--line);
                   background:#1a1c21; color:var(--ink); border-radius:8px; cursor:pointer; }
   #anims button.active { border-color:var(--accent); color:var(--accent); font-weight:700; }
+  #faceRow { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+  #faceRow button { border:2px solid var(--line); border-radius:8px; background:#000;
+    padding:0; overflow:hidden; cursor:pointer; }
+  #faceRow img { display:block; width:100%; aspect-ratio:1; }
+  #faceRow button.active { border-color:var(--accent); }
 
   #pfpBtn { width:100%; padding:10px; border:0; border-radius:10px; background:var(--accent);
             color:#0b1409; font-weight:700; font-size:14px; cursor:pointer; }
@@ -83,6 +88,8 @@
     <div class="swatches" id="accentSw"></div>
     <div class="sect">Animation</div>
     <div id="anims"></div>
+    <div class="sect" id="faceSect" hidden>Expression</div>
+    <div id="faceRow" hidden></div>
     <button id="pfpBtn">📸 Save look &amp; take profile picture</button>
     <a class="dl" id="pfpDl" hidden download="knitbit_pfp.png">download profile picture</a>
   </div>
@@ -302,6 +309,123 @@ async function equip(slot, traitId) {
   refreshTiles();
 }
 
+// ---------- animated face ----------
+// The base texture's face is a static baked-in smile on fragmented UV islands,
+// so expressions are played on a separate "face_screen" overlay mesh (shrink-
+// wrapped onto the CRT glass by export_web_bundle) whose texture is a live
+// canvas: black LED panel + the normalized expression sprites, with crossfade
+// and an automatic blink (a quick dip to 'relieved', whose closed-arc eyes
+// read as a blink).
+const face = { cur: 'idle', prev: null, fade: 1, imgs: {}, canvas: null,
+               tex: null, blinkT: 0, nextBlink: 3.0, blinking: false };
+
+function drawFace() {
+  const ctx = face.canvas.getContext('2d');
+  const W = 512, H = 512;
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(6, 6, W - 12, H - 12, 70);
+  ctx.clip();
+  ctx.fillStyle = '#050705';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(70,110,70,0.10)';   // faint LED grid
+  ctx.lineWidth = 1;
+  for (let i = 16; i < W; i += 16) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke();
+  }
+  const draw = (id, a) => {
+    const im = face.imgs[id];
+    if (!im) return;
+    ctx.globalAlpha = a;
+    ctx.globalCompositeOperation = 'lighter';  // glyphs add over black
+    // the screen mesh's u axis runs along world +x, which the front camera
+    // sees right-to-left — mirror the sprite so glyphs read correctly
+    ctx.save(); ctx.translate(W, 0); ctx.scale(-1, 1);
+    ctx.drawImage(im, 30, 30, W - 60, H - 60);
+    ctx.restore();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  };
+  const showing = face.blinking ? 'relieved' : face.cur;
+  if (face.fade < 1 && face.prev) { draw(face.prev, 1 - face.fade); draw(showing, face.fade); }
+  else draw(showing, 1);
+  ctx.restore();
+  face.tex.needsUpdate = true;
+}
+
+function setExpression(id) {
+  if (!face.imgs[id] || id === face.cur) return;
+  face.prev = face.blinking ? 'relieved' : face.cur;
+  face.cur = id;
+  face.fade = 0;
+  face.blinking = false;
+  window.__KB.face = id;
+  document.querySelectorAll('#faceRow button').forEach(b =>
+    b.classList.toggle('active', b.dataset.id === id));
+}
+
+async function initFace() {
+  const f = manifest.face;
+  if (!f || !f.expressions?.length) return;
+  const gltf = await loadGLB(WEB + f.file).catch(e => {
+    recordFail('face screen failed to load: ' + e.message);
+    return null;
+  });
+  if (!gltf) return;
+  let screen = null;
+  gltf.scene.traverse(o => { if (o.isMesh) screen = o; });
+  const bone = findBone(f.bone);
+  if (!screen || !bone) { recordFail('face screen: mesh or bone missing'); return; }
+  face.canvas = document.createElement('canvas');
+  face.canvas.width = face.canvas.height = 512;
+  face.tex = new THREE.CanvasTexture(face.canvas);
+  face.tex.colorSpace = THREE.SRGBColorSpace;
+  face.tex.flipY = false;                      // glTF UV convention
+  screen.material = new THREE.MeshBasicMaterial({
+    map: face.tex, transparent: true, toneMapped: false });
+  screen.updateWorldMatrix(true, false);
+  attachRestWorld(screen, bone, screen.matrixWorld.clone());
+  await Promise.all(f.expressions.map(e => new Promise(res => {
+    const im = new Image();
+    im.onload = () => { face.imgs[e.id] = im; res(); };
+    im.onerror = () => { recordFail('face sprite missing: ' + e.file); res(); };
+    im.src = WEB + e.file;
+  })));
+  drawFace();
+  window.__KB.face = face.cur;
+  window.__KB.setFace = setExpression;
+  // debug: flood the screen canvas with a solid color to see exactly what
+  // area the overlay mesh covers (used by the E2E/fit tooling)
+  window.__KB.paintFace = color => {
+    const ctx = face.canvas.getContext('2d');
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, 512, 512);
+    face.tex.needsUpdate = true;
+  };
+}
+
+function renderFace() {
+  const f = manifest.face;
+  if (!f || !f.expressions?.length || !face.tex) return;
+  document.getElementById('faceSect').hidden = false;
+  const row = document.getElementById('faceRow');
+  row.hidden = false;
+  row.innerHTML = '';
+  for (const e of f.expressions) {
+    const b = document.createElement('button');
+    b.dataset.id = e.id;
+    b.title = e.id;
+    b.classList.toggle('active', e.id === face.cur);
+    b.innerHTML = `<img src="${WEB + e.file}" alt="${e.id}">`;
+    b.onclick = () => setExpression(e.id);
+    row.appendChild(b);
+  }
+}
+
 // ---------- colors ----------
 const texLoader = new THREE.TextureLoader();
 const colorwayTex = {};
@@ -431,6 +555,8 @@ playClip('Idle');
 for (const [slot, tid] of Object.entries(manifest.presets.pilot ?? {})) {
   await equip(slot, tid);
 }
+await initFace();
+renderFace();
 
 // ---------- profile picture (main renderer: a second WebGL context can't see
 // this scene's GPU resources and captures an empty image) ----------
@@ -482,6 +608,22 @@ renderer.setAnimationLoop(() => {
     p.pivot.rotation.z = p.angle * 0.4;
   }
   prevHipX = hips ? hips.rotation.z : 0;
+
+  // face: expression crossfade + automatic blink
+  if (face.tex) {
+    let dirty = false;
+    if (face.fade < 1) { face.fade = Math.min(1, face.fade + dt / 0.18); dirty = true; }
+    face.blinkT += dt;
+    if (!face.blinking && face.blinkT > face.nextBlink && face.cur !== 'relieved') {
+      face.blinking = true; face.blinkT = 0; dirty = true;
+    } else if (face.blinking && face.blinkT > 0.13) {
+      face.blinking = false; face.blinkT = 0;
+      face.nextBlink = 2.5 + Math.random() * 3.5;
+      dirty = true;
+    }
+    if (dirty) drawFace();
+  }
+
   controls.update();
   renderer.render(scene, camera);
 });
