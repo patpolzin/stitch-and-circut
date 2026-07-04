@@ -25,6 +25,8 @@ Every KnitBit, regardless of theme, obeys these:
 | Material | Gunmetal / dark charcoal plated shell |
 | Internal structure | **Visible braided yarn**, never cable |
 | Yarn (base) | **Dark charcoal** (themes swap this — see §7) |
+| Yarn look | Soft, plush, **knitted/braided wool** — matte fibers with visible braid stitches. Never wire, coil, cable, or metal spring. |
+| Plating/yarn balance | Plating is **interwoven** with the yarn: armor on chest, shoulders, forearms, pelvis, shins/boots; yarn shows in joints, upper arms, thighs and torso gaps — structure without hiding the knit (v2 base). |
 | Mood | Friendly, collectible, retro-futurist, cozy-tech |
 | Rig | Humanoid biped skeleton (VRM-compatible) |
 | Style | Toy-like, premium, detailed, readable silhouette |
@@ -309,8 +311,20 @@ rig was built directly with `tools/rig_knitbit.py` (Blender, `bpy`), producing:
 
 - `assets/3d/knitbit_base/knitbit_base_rigged.glb` — the humanoid skeleton (20 bones,
   exactly the §3 hierarchy) + the 15 §4 socket empties, static bind pose.
-- `assets/3d/knitbit_base/knitbit_base_idle.glb` — the same rig with a 1-second procedural
-  idle clip (chest sway + head counter-nod), proving the skeleton deforms end to end.
+- `assets/3d/knitbit_base/knitbit_base_idle.glb` — the same rig with **three named
+  animation clips** authored as stashed NLA tracks so they export as separate glTF
+  animations (all verified to move bones on a fresh import):
+  - **Idle** (2s loop) — hip weight-shift + chest sway + head counter-nod + arm swing
+  - **Wave** (1.5s) — right arm raise + forearm wave, slight head tilt
+  - **Bounce** (1s) — springy hop (Hips bone-local lift) with arm/head follow-through
+
+The v2 base (regenerated 2026-07 for the soft-yarn + interwoven-plating art direction,
+same silhouette/pose via reference-image-guided generation) ships with **charcoal yarn
+baked in as the canonical default**. The source generation uses saturated crimson yarn on
+purpose: `tools/make_yarn_colorways.py` hue-keys the crimson into a yarn mask, bakes the
+charcoal default back into `knitbit_base_apose_textured.glb`, and emits one recolored
+1024px texture per §7 theme into `web/yarn_<theme>.jpg` (plus `textures/colorways.json`,
+picked up by the web export and the editor's "Yarn color" swatch row).
 
 Re-run any time the source mesh changes:
 
@@ -482,7 +496,15 @@ manifest data (no rig regeneration):
   the vertex count by z-band within an x-window restricted to one limb — the
   window alone cleanly isolates the hand in the A-pose; the boot additionally
   needs a z cutoff since its x-window overlaps the torso at higher z). Windows are
-  stored for the LEFT (+x) side; the right mirrors by negating x_min/x_max.
+  stored for the LEFT (+x) side; the right mirrors by negating x_min/x_max. A
+  region may carry `extra` windows (same format) for geometry the primary box
+  can't isolate. **The cut is plane-bisected, not just vertex-deleted**: the
+  builder first slices the mesh with a clean plane at every window boundary
+  (`bmesh.ops.bisect_plane`), then deletes the inside — deleting whole vertices
+  out of the coarse yarn triangulation leaves a ragged zigzag boundary that hung
+  visibly above the v2 boot cuffs until this fix. The v2 foot cut sits at the
+  leg's narrow waist (z −0.50): cut lower and the base's sculpted boot-top flare
+  survives and pokes past the replacement cuff.
 - **`mount:limb_pair`** traits carry `attach_bone` (a bone name **without** the
   `.L`/`.R` suffix, e.g. `"Foot"`) and `hides` (a `mesh_regions` key). The loader
   expands one trait into two `FitInstruction`s (`attach_bone="Foot.L"`/`"Foot.R"`,
@@ -606,27 +628,38 @@ browser editor (one prop: 32k verts + ~13.5 MB textures; one assembled GLB:
 | --- | --- |
 | `base.glb` (4 MB) | Idle-animated rigged base, body **split into named toggleable parts** (`base_core`, `base_hand_l/r`, `base_foot_l/r`, cut along the same `mesh_regions` windows) — the editor equips boots/hands by toggling part visibility, no client-side vertex surgery. Textures ≤1024. |
 | `piece_<trait>.glb` (0.6–1.4 MB each) | Every trait, exact builder placement, baked to world space, decimated to ≤9k tris, textures ≤512, `knitbit_attach_bone`/pivot extras on each node. |
-| `manifest.web.json` | Slots, traits (file/attachments/hides), themes, presets — everything the editor needs. |
+| `manifest.web.json` | Slots, traits (file/attachments/hides), themes, **colorways**, presets — everything the editor needs. |
+| `web/yarn_<theme>.jpg` + `web/tiles/*.jpg` | Runtime yarn colorway textures (11, from `tools/make_yarn_colorways.py`) and 160px photo tiles (from the trait thumbs) for the editor's tile grid. |
 
 `demos/knitbit_builder.html` (three.js, vendored in `demos/vendor/`) is the
-customization platform prototype: the KnitBit **stands in 3D with the Idle clip
-looping** (plus a gentle procedural hip bob the clip leaves free), **live
-updates** as the user picks traits per slot (pieces `bone.attach()`ed via
-rest-pose matrices so equipping is animation-time independent; mesh-swap traits
-toggle base part visibility), the belt charm swings on a **runtime pendulum**
-driven by the manifest's dynamic params, and **“Save look & take profile
-picture”** captures a square portrait and applies it to the profile widget
-(+ download). Run `python3 -m http.server` at the repo root and open
+customization platform prototype, **v2 UI** per user direction — no dropdowns:
+a **tab bar** (one tab per slot) over a **photo tile grid** (thumb per trait +
+a "None" tile, selected ring), a **Yarn color** swatch row (runtime
+`material.map` swap to the colorway textures), a per-slot **Accent color**
+tint row, and **Idle / Wave / Bounce** clip buttons (AnimationMixer crossfade).
+The KnitBit **stands in 3D with the Idle clip looping**, **live updates** as
+tiles are clicked (pieces `bone.attach()`ed via rest-pose matrices so equipping
+is animation-time independent; mesh-swap traits toggle base part visibility),
+the belt charm swings on a **runtime pendulum**, and **"Save look & take
+profile picture"** captures a square portrait and applies it to the profile
+widget (+ download). Run `python3 -m http.server` at the repo root and open
 `/demos/knitbit_builder.html`.
 
-Verified with headless Chromium (Playwright): loads with the pilot loadout and
-no page errors; idle motion confirmed by pixel-diffing frames 0.7 s apart;
-live-swapped scout antennae + headphones; PFP capture produces a real portrait
-(420 KB PNG) applied to the profile. Two bugs were found and fixed by that
-harness, both invisible in code review: `scene.add(light).position.set(...)`
-translated the whole scene (`add()` returns the scene), and capturing the PFP
-with a second `WebGLRenderer` produced an empty image (separate GL context —
-capture now reuses the main renderer at 512²).
+v2 also hardens the failure modes behind the earlier "boots and gloves missing"
+report: piece/fetch failures show a visible error banner (plus an explicit
+"serve over http://" message under `file://`), bone lookups fall back to
+GLTFLoader's sanitized names (`Foot.L` → `FootL` — the v1 root cause), base
+parts are hidden **only after** a piece successfully attaches (a failed boot
+load can never leave the character footless), and `window.__KB.debug()` exposes
+piece/part visibility for automated assertions.
+
+Verified with headless Chromium (Playwright, `e2e` run 2026-07): zero failures;
+base feet/hands hidden with 2 boot + 2 hand meshes visible; idle motion and the
+Wave clip confirmed by pixel-diff; tab+tile equip (scout antenna); yarn
+colorway swap changes 80k torso pixels; accent tint applied; PFP capture
+(357 KB) applied to the profile. Two earlier bugs this harness caught remain
+documented: `scene.add(light).position.set(...)` translated the whole scene,
+and a second `WebGLRenderer` captured an empty PFP (separate GL context).
 
 ### Not yet built (future builder work)
 - **More boot/hand options**: only one pick exists per slot so far (matching how
