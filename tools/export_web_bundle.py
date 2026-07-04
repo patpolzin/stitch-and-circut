@@ -44,12 +44,49 @@ REGION_PARTS = {"hand": ("base_hand_l", "base_hand_r"),
                 "foot": ("base_foot_l", "base_foot_r")}
 
 
-def in_window(co, region, mirror_x):
-    x_lo, x_hi = region["x_min"], region["x_max"]
-    if mirror_x:
-        x_lo, x_hi = -x_hi, -x_lo
-    z_max = region.get("z_max")
-    return x_lo <= co.x <= x_hi and (z_max is None or co.z <= z_max)
+def in_window(co, region, mirror_x, pad=0.0):
+    """pad > 0 grows the window, pad < 0 shrinks it. The split uses a small
+    positive pad for the limb parts and a negative one for the core so BOTH
+    keep the exact-boundary rim vertices (created by bisect_region_planes) —
+    without the overlap, faces straddling the boundary are dropped from both
+    parts and the seam shows as a torn ring when a limb part is visible."""
+    for w in [region] + list(region.get("extra", ())):
+        x_lo, x_hi = w["x_min"], w["x_max"]
+        if mirror_x:
+            x_lo, x_hi = -x_hi, -x_lo
+        z_max = w.get("z_max")
+        if (x_lo - pad <= co.x <= x_hi + pad
+                and (z_max is None or co.z <= z_max + pad)):
+            return True
+    return False
+
+
+def bisect_region_planes(obj, regions):
+    """Slice the body with a clean plane at every region-window boundary so
+    no face straddles a split boundary (same trick as the assembler's
+    hide_mesh_region — coarse yarn triangles otherwise leave ragged seams)."""
+    import bmesh
+    import mathutils
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    inv = obj.matrix_world.inverted()
+    planes = []
+    for key in REGION_PARTS:
+        for w in [regions[key]] + list(regions[key].get("extra", ())):
+            for x in (w["x_min"], w["x_max"]):
+                planes.append(((x, 0, 0), (1, 0, 0)))
+                planes.append(((-x, 0, 0), (1, 0, 0)))
+            if w.get("z_max") is not None:
+                planes.append(((0, 0, w["z_max"]), (0, 0, 1)))
+    for co_w, no_w in planes:
+        bmesh.ops.bisect_plane(
+            bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:],
+            plane_co=inv @ mathutils.Vector(co_w),
+            plane_no=(inv.to_3x3() @ mathutils.Vector(no_w)),
+            clear_inner=False, clear_outer=False)
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
 
 
 def delete_verts(obj, keep):
@@ -118,20 +155,34 @@ def build_base():
     body = bc.find_body(objs)
     body.name = "base_core"
 
+    # Conform the leg collar to the boot_classic cuff tube BEFORE splitting,
+    # so the boots-equipped state shows yarn touching the cuff rim all around
+    # (see build_character.conform_collar). The collar verts live above the
+    # foot window's z_max and therefore end up in base_core.
+    armature = bc.find_armature(objs)
+    for instr in km.resolve_loadout(M, {"boots": "boot_classic"}):
+        tmp = bc.fit_instruction(instr, body, armature, hidden=None)
+        if tmp is not None:
+            bc.conform_collar(body, tmp, instr.mirror_x)
+            bpy.data.objects.remove(tmp, do_unlink=True)
+
     regions = M["mesh_regions"]
+    bisect_region_planes(body, regions)
+    EPS = 5e-4
     parts = ["base_core"]
     for key, (name_l, name_r) in REGION_PARTS.items():
         region = regions[key]
         for name, mirror in ((name_l, False), (name_r, True)):
             part = duplicate(body, name)
-            delete_verts(part, lambda co, r=region, mi=mirror: in_window(co, r, mi))
+            delete_verts(part, lambda co, r=region, mi=mirror: in_window(co, r, mi, pad=EPS))
             parts.append(name)
             print(f"[web] split part '{name}': {len(part.data.vertices)} verts")
-    # core = body minus every region window
+    # core = body minus the strict interior of every region window; the
+    # boundary rim loop stays in BOTH core and parts so the seam is closed
     def in_any(co):
         for key in REGION_PARTS:
             for mirror in (False, True):
-                if in_window(co, regions[key], mirror):
+                if in_window(co, regions[key], mirror, pad=-EPS):
                     return True
         return False
     delete_verts(body, lambda co: not in_any(co))

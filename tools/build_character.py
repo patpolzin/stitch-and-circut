@@ -145,6 +145,95 @@ def hide_mesh_region(body_obj, region, mirror_x):
     print(f"[build] hid mesh_region {desc}: {len(to_delete)} verts removed")
 
 
+def conform_collar(body_obj, boot_obj, mirror_x,
+                   z_top=-0.415, z_bottom=-0.505, inset=0.0, blend=0.025):
+    """Conform the leg's 'collar' (the yarn between z_top and z_bottom) to the
+    boot's inner shaft wall so the yarn touches the cuff opening on ALL sides.
+
+    At rim height the v2 leg is narrower than the cuff tube (visible crescent
+    gap looking into the boot) while a few cm deeper the yarn braids are WIDER
+    than the tube (they poked through the shaft wall) — no rigid offset/scale
+    can fix both. Instead, each collar vertex's radial distance from the tube
+    axis is driven to the boot's inner wall minus `inset`, estimated per
+    angular bin from the boot's own vertices at collar height. The correction
+    blends in over `blend` below z_top - z_top sits just ABOVE the cuff rim
+    (-0.439) so the conform reaches 100% AT the rim and the visible yarn
+    meets the opening flush, tapering to the natural leg a bit higher."""
+    import math as _math
+    bw = [boot_obj.matrix_world @ v.co for v in boot_obj.data.vertices]
+    band = [(c.x, c.y) for c in bw if z_bottom - 0.02 <= c.z <= z_top + 0.03]
+    if len(band) < 20:
+        print(f"[build] conform_collar: only {len(band)} boot verts in band - skipped")
+        return
+    # tube axis = center of the cuff RING (top rim), not the band mean — the
+    # band includes heel-side shaft geometry that biases the mean backward
+    z_boot_top = max(c.z for c in bw)
+    ring = [(c.x, c.y) for c in bw if c.z > z_boot_top - 0.03]
+    ctr_x = (min(p[0] for p in ring) + max(p[0] for p in ring)) / 2
+    ctr_y = (min(p[1] for p in ring) + max(p[1] for p in ring)) / 2
+
+    NBINS = 24
+    wall = [None] * NBINS
+    for px, py in band:
+        dx, dy = px - ctr_x, py - ctr_y
+        r = _math.hypot(dx, dy)
+        b = int(((_math.atan2(dy, dx) + _math.pi) / (2 * _math.pi)) * NBINS) % NBINS
+        if wall[b] is None or r < wall[b]:
+            wall[b] = r
+    # fill empty bins from the nearest populated neighbor
+    for i in range(NBINS):
+        if wall[i] is None:
+            for d in range(1, NBINS):
+                a, c = wall[(i - d) % NBINS], wall[(i + d) % NBINS]
+                src = a if a is not None else c
+                if src is not None:
+                    wall[i] = src
+                    break
+
+    def wall_at(angle):
+        f = ((angle + _math.pi) / (2 * _math.pi)) * NBINS
+        i0 = int(f) % NBINS
+        i1 = (i0 + 1) % NBINS
+        t = f - int(f)
+        return wall[i0] * (1 - t) + wall[i1] * t
+
+    inv = body_obj.matrix_world.inverted()
+    moved = 0
+    max_dr = 0.0
+    MAX_MOVE = 0.10   # front rim gap reaches ~0.09; anything bigger is a
+    #                   mis-capture (knee plate bottom, crotch drape) - skip it
+    for v in body_obj.data.vertices:
+        co = body_obj.matrix_world @ v.co
+        sx = -co.x if mirror_x else co.x
+        if not (0.02 < sx < 0.46) or not (z_bottom <= co.z <= z_top):
+            continue
+        dx, dy = co.x - ctr_x, co.y - ctr_y
+        r = _math.hypot(dx, dy)
+        if r < 1e-6:
+            continue
+        wall_r = wall_at(_math.atan2(dy, dx))
+        # only verts already near the tube wall are leg-collar surface; the
+        # crotch drape (far inward) and the knee plate bottom (far outward)
+        # must not be dragged onto the tube
+        if not (wall_r - 0.14 < r < wall_r + 0.06):
+            continue
+        target = wall_r - inset
+        t = min(1.0, (z_top - co.z) / blend)
+        dr = (target - r) * t
+        dr = max(-MAX_MOVE, min(MAX_MOVE, dr))
+        if abs(dr) < 1e-6:
+            continue
+        s = (r + dr) / r
+        new_co = mathutils.Vector((ctr_x + dx * s, ctr_y + dy * s, co.z))
+        v.co = inv @ new_co
+        moved += 1
+        max_dr = max(max_dr, abs(dr))
+    body_obj.data.update()
+    side = "R" if mirror_x else "L"
+    print(f"[build] conform_collar {side}: {moved} verts fitted to the cuff tube "
+          f"(max radial move {max_dr:.3f})")
+
+
 def fit_instruction(instr, body_obj=None, armature_obj=None, hidden=None):
     """Mount one km.FitInstruction in the current scene: onto a socket empty
     for a normal attachment, or directly at a bone head for a mesh-swap
@@ -241,6 +330,9 @@ def fit_instruction(instr, body_obj=None, armature_obj=None, hidden=None):
 
     if instr.dynamic:
         _make_dynamic(prop, instr.dynamic)
+
+    if instr.hides_region == "foot" and body_obj is not None and hidden is not None:
+        conform_collar(body_obj, prop, instr.mirror_x)
 
     target_label = instr.socket or f"bone:{instr.attach_bone}"
     prop_pos = tuple(round(v, 3) for v in prop.matrix_world.translation)
