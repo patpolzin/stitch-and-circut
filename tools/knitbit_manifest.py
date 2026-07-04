@@ -113,12 +113,16 @@ def _instructions_for_trait(trait, dynamic=None):
         hides = trait.get("hides")
         if not bone:
             raise ValueError(f"trait '{trait['id']}' has mount 'limb_pair' but no attach_bone set")
+        # optional per-side override for asymmetric base meshes (the v2 base's
+        # leg columns differ slightly L vs R). Authored in the SAME left-side
+        # convention as offset_frac — x is still negated on application.
+        off_r = fit.get("offset_frac_right", off)
         return [
             FitInstruction(trait["id"] + "_left", trait["id"], file_abs, None,
                            scale, rot, False, off, dynamic,
                            attach_bone=f"{bone}.L", hides_region=hides),
             FitInstruction(trait["id"] + "_right", trait["id"], file_abs, None,
-                           scale, rot, True, off, dynamic,
+                           scale, rot, True, off_r, dynamic,
                            attach_bone=f"{bone}.R", hides_region=hides),
         ]
     if mount == "socket":
