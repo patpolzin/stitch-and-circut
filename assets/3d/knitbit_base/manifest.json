@@ -35,7 +35,8 @@
   "hand": {
    "x_min": 0.55,
    "x_max": 0.8,
-   "comment": "No z bound needed: in the A-pose this x-band contains ONLY the hand/fist (v2 base probed z range -0.563..-0.136). x_min raised 0.5->0.55 for the v2 base because its head ear plates reach |x|=0.521 at z_frac 0.70-0.80 and would otherwise fall inside the band."
+   "comment": "Isolates the fist for the mesh-swap: x band 0.55..0.8 AND z below -0.27 (the wrist). The z bound is essential on the v2 base: without it the window also decapitates the outer half of the elbow bulge (which reaches x~0.62 at z -0.10..-0.26), leaving a tall exposed cut face above the glove that no fist-sized piece can cover. x_min 0.55 keeps the head's ear plates (|x|=0.521) out of the band.",
+   "z_max": -0.27
   }
  },
  "slots": {
@@ -529,7 +530,7 @@
    "mount": "limb_pair",
    "attach_bone": "Hand",
    "hides": "hand",
-   "note": "v2 base retune: rotation re-derived from the new Hand.L bone dir (knuckle-local -Y -> bone head->tail), scale 0.2->0.16 for the slimmer v2 arm, offset re-measured so the mitt centroid covers the hidden hand blob centroid (0.596,-0.011,-0.454) instead of the forearm.",
+   "note": "v2 retune r3 (closed-loop): hand hide window bounded at the wrist (z<-0.27) so only the fist is swapped - the unbounded x-band decapitated the outer elbow bulge, leaving a tall exposed cut face above the glove. Glove opening centered on the wrist stump section via the probe_wrist residuals.",
    "fit": {
     "scale": 0.16,
     "rotation_deg": [
@@ -539,8 +540,8 @@
     ],
     "offset_frac": [
      -0.021,
-     -0.009,
-     -0.028
+     -0.0061,
+     -0.023
     ]
    }
   }
