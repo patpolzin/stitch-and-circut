@@ -649,7 +649,18 @@ browser editor (one prop: 32k verts + ~13.5 MB textures; one assembled GLB:
 | `web/yarn_<theme>.jpg`, `web/porcelain_<theme>.jpg` + `web/tiles/*.jpg` | Runtime skin textures: the full **plating x colorway matrix** (2 platings x 11 yarn colorways, from `tools/make_yarn_colorways.py`) plus 160px photo tiles for the editor's tile grid. Platings are a second recolor axis over the enamel shells: `capsule` (default, the v3 look) and `porcelain` (near-white pearl per the mockup-D alternate, `refs/restyle_d_porcelain_tech.png`); dark accents stay untouched so the two-tone reads. The editor's Plating swatch row composes with the Yarn row via filename prefix. |
 
 `demos/knitbit_builder.html` (three.js, vendored in `demos/vendor/`) is the
-customization platform prototype, **v2 UI** per user direction — no dropdowns:
+customization platform — the **KnitBit Forge**, a AAA-styled creation screen:
+a lit stage (procedural PMREM image-based lighting, podium with pulsing accent
+ring, gradient backdrop dome, drifting dust motes, idle turntable), a directed
+camera (per-tab framing tweens — wall-clock-based so frame drops never slow a
+move — equip pop-in beats with a ring flash and a starEyes blip, an intro
+sweep), a glass UI panel (staggered card tiles, icon tabs, toasts, Name-your-
+Bit, Randomize/Undo/Reset with a serialized op queue), synthesized WebAudio UI
+sounds (muted by default), and a save-look finale (hero camera + Wave +
+confetti + shutter flash + summary card). `?nofx=1` or
+`prefers-reduced-motion` disables the cinematic layer for determinism and
+accessibility. Committed E2E driver: `tools/editor_e2e.py` (regression pass on
+`?nofx=1` + an FX pass). The v2 panel structure it grew from — no dropdowns:
 a **tab bar** (one tab per slot) over a **photo tile grid** (thumb per trait +
 a "None" tile, selected ring), a **Yarn color** swatch row (runtime
 `material.map` swap to the colorway textures), a per-slot **Accent color**

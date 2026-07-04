@@ -2,100 +2,236 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>KnitBit Builder — character customization</title>
+<title>KnitBit Forge — build your Bit</title>
 <style>
-  :root { --bg:#191b1f; --panel:#22252b; --ink:#e8eaee; --muted:#9aa1ab; --line:#33373f;
-          --accent:#38e655; --err:#ff5d5d; }
+  :root {
+    --bg:#0c0e13; --panel:rgba(21,24,31,0.86); --panel-solid:#15181f;
+    --ink:#eef1f6; --muted:#8d95a3; --line:#2c313b; --hairline:rgba(255,255,255,0.08);
+    --accent:#38e655; --accent2:#27b543; --gold:#e7b416; --err:#ff5d5d;
+    --card:#1a1e26; --card-hi:#222733;
+    --ease:cubic-bezier(.22,.9,.3,1);
+  }
   * { box-sizing:border-box; margin:0; }
-  body { display:flex; height:100vh; background:var(--bg); color:var(--ink);
-         font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif; overflow:hidden; }
+  html, body { height:100%; }
+  body { display:flex; background:var(--bg); color:var(--ink); overflow:hidden;
+         font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+
+  /* ---------- stage ---------- */
   #stage { flex:1; position:relative; min-width:0; }
   #stage canvas { display:block; }
-  #hud { position:absolute; left:14px; top:12px; color:var(--muted); font-size:12px; }
+  #vignette { position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse 90% 80% at 46% 42%, transparent 55%, rgba(4,6,10,0.55) 100%); }
+  #hud { position:absolute; left:18px; bottom:14px; color:var(--muted); font-size:10px;
+         letter-spacing:.18em; text-transform:uppercase; opacity:.7; pointer-events:none; }
   #errbar { position:absolute; left:0; right:0; top:0; background:var(--err); color:#2a0606;
-            font-weight:600; font-size:13px; padding:8px 14px; display:none; z-index:5; }
-  #panel { width:380px; background:var(--panel); border-left:1px solid var(--line);
-           display:flex; flex-direction:column; }
-  #panelScroll { padding:16px 16px 20px; overflow-y:auto; flex:1; }
-  h1 { font-size:18px; }
-  .sub { color:var(--muted); font-size:12px; margin:2px 0 12px; }
+            font-weight:600; font-size:13px; padding:8px 14px; display:none; z-index:9; }
+  #flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none;
+           transition:opacity .5s ease-out; z-index:8; }
+  #flash.on { opacity:.92; transition:none; }
 
-  #profile { padding:10px 12px; border:1px solid var(--line); border-radius:12px;
-             display:flex; gap:12px; align-items:center; margin-bottom:14px; }
-  #avatar { width:60px; height:60px; border-radius:50%; background:#111; object-fit:cover;
-            border:2px solid var(--line); }
+  /* ---------- glass panel ---------- */
+  #panel { width:400px; display:flex; flex-direction:column; position:relative; z-index:2;
+           background:var(--panel); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+           border-left:1px solid var(--hairline);
+           box-shadow:-18px 0 50px rgba(0,0,0,.45); }
+  @supports not (backdrop-filter:blur(14px)) { #panel { background:var(--panel-solid); } }
+  #panel.slide-in { animation:panelIn .7s var(--ease) both; }
+  @keyframes panelIn { from { transform:translateX(40px); opacity:0; } to { transform:none; opacity:1; } }
+
+  #phead { display:flex; align-items:center; justify-content:space-between;
+           padding:18px 18px 10px; }
+  #phead h1 { font-size:21px; font-weight:800; letter-spacing:.04em; }
+  #phead h1 span { color:var(--accent); }
+  #phead .sub { color:var(--muted); font-size:11px; letter-spacing:.08em; margin-top:2px; }
+  #audioBtn { border:1px solid var(--line); background:transparent; color:var(--muted);
+              width:34px; height:34px; border-radius:10px; cursor:pointer; font-size:15px;
+              transition:all .2s var(--ease); }
+  #audioBtn:hover { border-color:var(--accent); color:var(--ink); transform:translateY(-1px); }
+
+  #profile { margin:6px 16px 10px; padding:10px 12px; display:flex; gap:12px; align-items:center;
+             border:1px solid var(--hairline); border-radius:14px;
+             background:linear-gradient(160deg, rgba(255,255,255,.04), rgba(255,255,255,0)); }
+  #avatar { width:52px; height:52px; border-radius:50%; background:#0a0c10; object-fit:cover;
+            border:2px solid var(--line); transition:border-color .3s; }
+  #avatar.captured { border-color:var(--accent); }
   #profile .who { flex:1; min-width:0; }
-  #profile .who b { display:block; font-size:13px; }
-  #profile .who span { font-size:11px; color:var(--muted); }
+  #bitName { width:100%; background:transparent; border:0; border-bottom:1px dashed var(--line);
+             color:var(--ink); font:600 14px/1.3 inherit; padding:2px 0; outline:none; }
+  #bitName:focus { border-bottom-color:var(--accent); }
+  #bitName::placeholder { color:var(--muted); font-weight:400; }
+  #avatarState { font-size:10.5px; color:var(--muted); }
 
-  #tabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
-  #tabs button { padding:6px 10px; font-size:12px; border:1px solid var(--line);
-                 background:#1a1c21; color:var(--muted); border-radius:999px; cursor:pointer; }
-  #tabs button.active { background:var(--accent); border-color:var(--accent);
-                        color:#0b1409; font-weight:700; }
+  #panelScroll { padding:4px 16px 16px; overflow-y:auto; flex:1; scrollbar-width:thin;
+                 scrollbar-color:var(--line) transparent; }
 
-  #tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
-  .tile { position:relative; border:2px solid var(--line); border-radius:12px; overflow:hidden;
-          cursor:pointer; background:#1a1c21; padding:0; }
+  /* tabs */
+  #tabs { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 12px; }
+  #tabs button { display:flex; align-items:center; gap:5px; padding:6px 11px; font-size:12px;
+    border:1px solid var(--line); background:rgba(255,255,255,.02); color:var(--muted);
+    border-radius:999px; cursor:pointer; transition:all .22s var(--ease); }
+  #tabs button:hover { color:var(--ink); border-color:#49505d; transform:translateY(-1px); }
+  #tabs button.active { background:var(--accent); border-color:var(--accent); color:#0b1409;
+    font-weight:700; box-shadow:0 2px 14px rgba(56,230,85,.35); }
+
+  /* tiles */
+  #tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-bottom:16px; }
+  .tile { position:relative; border:1.5px solid var(--line); border-radius:13px; overflow:hidden;
+          cursor:pointer; background:var(--card); padding:0; opacity:0; transform:translateY(8px);
+          transition:transform .22s var(--ease), border-color .22s, box-shadow .22s; }
+  .tile.in { animation:tileIn .34s var(--ease) both; }
+  @keyframes tileIn { to { opacity:1; transform:none; } }
+  .tile:hover { transform:translateY(-3px); border-color:#4a5160;
+                box-shadow:0 8px 22px rgba(0,0,0,.45); }
   .tile img { display:block; width:100%; aspect-ratio:1; object-fit:cover; }
-  .tile figcaption { font-size:10px; color:var(--muted); text-align:center; padding:3px 2px 5px; }
-  .tile.selected { border-color:var(--accent); }
-  .tile.selected figcaption { color:var(--accent); }
+  .tile figcaption { font-size:10px; color:var(--muted); text-align:center; padding:4px 2px 6px; }
+  .tile.selected { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent),
+                   0 4px 18px rgba(56,230,85,.25); }
+  .tile.selected figcaption { color:var(--accent); font-weight:700; }
+  .tile.selected::after { content:"✓"; position:absolute; top:6px; right:7px; width:18px; height:18px;
+    border-radius:50%; background:var(--accent); color:#0b1409; font-size:11px; font-weight:800;
+    display:grid; place-items:center; }
 
-  .sect { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
-          margin:4px 0 6px; }
-  .swatches { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
-  .sw { width:26px; height:26px; border-radius:50%; border:2px solid var(--line); cursor:pointer; }
-  .sw.selected { border-color:#fff; box-shadow:0 0 0 2px var(--accent); }
+  .sect { font-size:10.5px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted);
+          margin:6px 0 7px; display:flex; align-items:center; gap:8px; }
+  .sect::after { content:""; flex:1; height:1px; background:var(--hairline); }
 
-  #anims { display:flex; gap:6px; margin-bottom:12px; }
+  .swatches { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:14px; }
+  .sw { width:28px; height:28px; border-radius:50%; border:2px solid var(--line); cursor:pointer;
+        transition:transform .18s var(--ease), box-shadow .18s; position:relative; }
+  .sw:hover { transform:scale(1.14); }
+  .sw.selected { border-color:#fff; box-shadow:0 0 0 2px var(--accent), 0 0 14px rgba(56,230,85,.4); }
+
+  #anims { display:flex; gap:6px; margin-bottom:14px; }
   #anims button { flex:1; padding:7px 0; font-size:12px; border:1px solid var(--line);
-                  background:#1a1c21; color:var(--ink); border-radius:8px; cursor:pointer; }
-  #anims button.active { border-color:var(--accent); color:var(--accent); font-weight:700; }
-  #faceRow { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
-  #faceRow button { border:2px solid var(--line); border-radius:8px; background:#000;
-    padding:0; overflow:hidden; cursor:pointer; }
-  #faceRow img { display:block; width:100%; aspect-ratio:1; }
-  #faceRow button.active { border-color:var(--accent); }
+    background:rgba(255,255,255,.02); color:var(--ink); border-radius:9px; cursor:pointer;
+    transition:all .2s var(--ease); }
+  #anims button:hover { border-color:#49505d; transform:translateY(-1px); }
+  #anims button.active { border-color:var(--accent); color:var(--accent); font-weight:700;
+    background:rgba(56,230,85,.08); }
 
-  #pfpBtn { width:100%; padding:10px; border:0; border-radius:10px; background:var(--accent);
-            color:#0b1409; font-weight:700; font-size:14px; cursor:pointer; }
-  #pfpBtn:hover { filter:brightness(1.08); }
-  a.dl { display:block; margin-top:6px; font-size:11px; color:var(--accent); }
+  #faceRow { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-bottom:8px; }
+  #faceRow button { border:1.5px solid var(--line); border-radius:9px; background:#000;
+    padding:0; overflow:hidden; cursor:pointer; transition:all .18s var(--ease); }
+  #faceRow button:hover { transform:translateY(-2px); border-color:#4a5160; }
+  #faceRow img { display:block; width:100%; aspect-ratio:1; }
+  #faceRow button.active { border-color:var(--accent); box-shadow:0 0 10px rgba(56,230,85,.3); }
+
+  /* action bar */
+  #actions { display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--hairline);
+             background:rgba(0,0,0,.18); }
+  #actions .ghost { padding:0 13px; height:42px; font-size:13px; border:1px solid var(--line);
+    background:transparent; color:var(--muted); border-radius:11px; cursor:pointer;
+    transition:all .2s var(--ease); }
+  #actions .ghost:hover:not(:disabled) { color:var(--ink); border-color:#4a5160; transform:translateY(-1px); }
+  #actions .ghost:disabled { opacity:.35; cursor:default; }
+  #pfpBtn { flex:1; height:42px; border:0; border-radius:11px; cursor:pointer;
+    font-weight:800; font-size:14px; letter-spacing:.05em; color:#0b1409;
+    background:linear-gradient(135deg, var(--accent), #7ff09a 55%, var(--accent2));
+    background-size:200% 100%; transition:all .25s var(--ease); }
+  #pfpBtn:hover { background-position:100% 0; box-shadow:0 6px 24px rgba(56,230,85,.4);
+                  transform:translateY(-1px); }
+  a.dl { display:block; font-size:11px; color:var(--accent); }
   a.dl[hidden] { display:none; }
-  #status { padding:8px 16px; font-size:11px; color:var(--muted); border-top:1px solid var(--line);
-            min-height:31px; }
+  #status { padding:6px 16px 9px; font-size:10.5px; color:var(--muted); min-height:26px; }
+
+  /* toasts */
+  #toasts { position:fixed; left:18px; top:16px; z-index:20; display:flex;
+            flex-direction:column; gap:8px; pointer-events:none; }
+  .toast { background:rgba(20,24,30,.92); border:1px solid var(--hairline); color:var(--ink);
+    border-left:3px solid var(--accent); padding:9px 14px; font-size:12.5px; border-radius:10px;
+    box-shadow:0 8px 30px rgba(0,0,0,.5); animation:toastIn .35s var(--ease) both; }
+  .toast.bye { animation:toastOut .3s ease-in both; }
+  @keyframes toastIn { from { transform:translateX(-16px); opacity:0; } to { transform:none; opacity:1; } }
+  @keyframes toastOut { to { transform:translateX(-16px); opacity:0; } }
+
+  /* save card */
+  #cardWrap { position:fixed; inset:0; z-index:15; display:grid; place-items:center;
+              background:rgba(5,7,10,.55); backdrop-filter:blur(3px); }
+  #cardWrap[hidden] { display:none; }
+  #saveCard { width:330px; background:linear-gradient(165deg, #1b2029, #12151b);
+    border:1px solid var(--hairline); border-radius:20px; padding:20px; text-align:center;
+    box-shadow:0 30px 80px rgba(0,0,0,.65), 0 0 0 1px rgba(56,230,85,.12);
+    animation:cardIn .5s var(--ease) both; }
+  @keyframes cardIn { from { transform:translateY(26px) scale(.96); opacity:0; }
+                      to { transform:none; opacity:1; } }
+  #saveCard img { width:190px; height:190px; border-radius:16px; border:2px solid var(--accent);
+                  box-shadow:0 0 34px rgba(56,230,85,.3); }
+  #saveCard h2 { margin:12px 0 2px; font-size:19px; letter-spacing:.03em; }
+  #saveCard .tag { color:var(--muted); font-size:11px; letter-spacing:.12em;
+                   text-transform:uppercase; margin-bottom:10px; }
+  #cardChips { display:flex; flex-wrap:wrap; gap:5px; justify-content:center; margin-bottom:14px; }
+  #cardChips span { font-size:10.5px; padding:3px 9px; border-radius:999px;
+                    border:1px solid var(--line); color:var(--muted); }
+  #saveCard .row { display:flex; gap:8px; }
+  #saveCard .row > * { flex:1; padding:10px 0; border-radius:10px; font-size:13px; font-weight:700;
+    cursor:pointer; text-decoration:none; display:grid; place-items:center; }
+  #cardDl { background:var(--accent); color:#0b1409; border:0; }
+  #cardClose { background:transparent; color:var(--ink); border:1px solid var(--line); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+  }
 </style>
 </head>
 <body>
 <div id="stage">
+  <div id="vignette"></div>
   <div id="errbar"></div>
-  <div id="hud">drag to orbit · scroll to zoom</div>
+  <div id="hud">Drag to orbit · Scroll to zoom</div>
+  <div id="flash"></div>
 </div>
-<div id="panel">
-  <div id="panelScroll">
-    <h1>KnitBit Builder</h1>
-    <div class="sub">Customize your Bit — live 3D preview with idle motion.</div>
-    <div id="profile">
-      <img id="avatar" alt="profile picture">
-      <div class="who"><b>your_profile</b><span id="avatarState">no picture yet</span></div>
+
+<aside id="panel">
+  <header id="phead">
+    <div>
+      <h1>KNITBIT <span>FORGE</span></h1>
+      <div class="sub">FORGE YOUR BIT · LIVE PREVIEW</div>
     </div>
-    <div id="tabs"></div>
+    <button id="audioBtn" title="toggle sound">🔇</button>
+  </header>
+  <div id="profile">
+    <img id="avatar" alt="profile picture">
+    <div class="who">
+      <input id="bitName" placeholder="Name your Bit…" maxlength="18" spellcheck="false">
+      <span id="avatarState">no picture yet</span>
+    </div>
+  </div>
+  <div id="panelScroll">
+    <nav id="tabs"></nav>
     <div id="tiles"></div>
     <div class="sect" id="platingSect" hidden>Plating</div>
     <div class="swatches" id="platingSw" hidden></div>
     <div class="sect" id="yarnSect" hidden>Yarn color</div>
     <div class="swatches" id="yarnSw" hidden></div>
-    <div class="sect">Accent color <span id="accentSlot" style="text-transform:none"></span></div>
+    <div class="sect">Accent <span id="accentSlot" style="text-transform:none"></span></div>
     <div class="swatches" id="accentSw"></div>
-    <div class="sect">Animation</div>
-    <div id="anims"></div>
     <div class="sect" id="faceSect" hidden>Expression</div>
     <div id="faceRow" hidden></div>
-    <button id="pfpBtn">📸 Save look &amp; take profile picture</button>
+    <div class="sect">Animation</div>
+    <div id="anims"></div>
     <a class="dl" id="pfpDl" hidden download="knitbit_pfp.png">download profile picture</a>
   </div>
+  <footer id="actions">
+    <button class="ghost" id="randBtn" title="randomize">🎲</button>
+    <button class="ghost" id="undoBtn" title="undo" disabled>↩</button>
+    <button class="ghost" id="resetBtn" title="reset to default">Reset</button>
+    <button id="pfpBtn">SAVE LOOK</button>
+  </footer>
   <div id="status">loading…</div>
+</aside>
+
+<div id="toasts"></div>
+<div id="cardWrap" hidden>
+  <div id="saveCard">
+    <img id="cardImg" alt="your Bit">
+    <h2 id="cardName">Bit</h2>
+    <div class="tag">LOOK SAVED · PROFILE UPDATED</div>
+    <div id="cardChips"></div>
+    <div class="row">
+      <a id="cardDl" download="knitbit_pfp.png">Download</a>
+      <button id="cardClose">Keep editing</button>
+    </div>
+  </div>
 </div>
 
 <script type="importmap">
@@ -114,8 +250,13 @@ const say = m => statusEl.textContent = m;
 const fail = m => { errbar.style.display = 'block';
                     errbar.textContent = '⚠ ' + m; console.error('[builder]', m); };
 
+// motion/FX gate: honors prefers-reduced-motion and ?nofx=1 (E2E determinism)
+const FX = !new URLSearchParams(location.search).has('nofx')
+        && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 // test/debug hooks (Playwright asserts against these)
-window.__KB = { ready:false, equips:0, pfp:false, failures:[], debug:null };
+window.__KB = { ready:false, equips:0, pfp:false, failures:[], debug:null,
+                audio:false, fx:FX };
 const recordFail = m => { window.__KB.failures.push(m); fail(m); };
 
 if (location.protocol === 'file:') {
@@ -125,26 +266,109 @@ if (location.protocol === 'file:') {
   throw new Error('file:// not supported');
 }
 
+// ---------- toasts ----------
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => { el.classList.add('bye'); setTimeout(() => el.remove(), 320); }, 2200);
+}
+
+// ---------- audio (synthesized, muted by default, gesture-gated) ----------
+const audio = { ctx:null, on:localStorage.getItem('kb_audio') === '1' };
+function ac() { return audio.ctx ??= new (window.AudioContext || window.webkitAudioContext)(); }
+function tone(freq, dur = 0.07, type = 'triangle', gain = 0.05, slide = 0) {
+  if (!audio.on) return;
+  try {
+    const c = ac(), o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, c.currentTime);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), c.currentTime + dur);
+    g.gain.setValueAtTime(gain, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0008, c.currentTime + dur);
+    o.connect(g).connect(c.destination);
+    o.start(); o.stop(c.currentTime + dur + 0.02);
+  } catch (_) { /* audio is decorative */ }
+}
+const sfx = {
+  hover:  () => tone(1500, 0.03, 'sine', 0.012),
+  tab:    () => tone(660, 0.06, 'square', 0.03, 220),
+  equip:  () => { tone(190, 0.10, 'triangle', 0.07); setTimeout(() => tone(880, 0.07, 'square', 0.035), 60); },
+  swatch: () => tone(980, 0.05, 'sine', 0.03, 300),
+  save:   () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.16, 'triangle', 0.06), i * 95)),
+};
+const audioBtn = document.getElementById('audioBtn');
+function syncAudioBtn() { audioBtn.textContent = audio.on ? '🔊' : '🔇';
+                          window.__KB.audio = audio.on; }
+audioBtn.onclick = () => { audio.on = !audio.on;
+  localStorage.setItem('kb_audio', audio.on ? '1' : '0'); syncAudioBtn();
+  if (audio.on) sfx.tab(); };
+syncAudioBtn();
+
+// ---------- renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.35;
+renderer.toneMappingExposure = 1.25;
 stage.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x191b1f);
-const camera = new THREE.PerspectiveCamera(33, 1, 0.05, 60);
+const camera = new THREE.PerspectiveCamera(33, 1, 0.05, 80);
 const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 1.1;
+controls.maxDistance = 9;
+controls.autoRotateSpeed = 0.7;
 
-// keep lights in variables — scene.add() returns the SCENE; chaining
-// .position.set off it once translated the whole world (found via E2E)
-scene.add(new THREE.HemisphereLight(0xe6ecf4, 0x3a3f48, 1.6));
-const key = new THREE.DirectionalLight(0xffffff, 3.0);
+// image-based lighting: PMREM over a tiny procedural studio dome — gives the
+// enamel shells real reflections without any external HDR asset
+{
+  const pm = new THREE.PMREMGenerator(renderer);
+  const es = new THREE.Scene();
+  const c = document.createElement('canvas'); c.width = 4; c.height = 128;
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 128);
+  grad.addColorStop(0.0, '#aebdd4');
+  grad.addColorStop(0.45, '#5c6674');
+  grad.addColorStop(1.0, '#15171c');
+  g.fillStyle = grad; g.fillRect(0, 0, 4, 128);
+  const domeTex = new THREE.CanvasTexture(c);
+  domeTex.colorSpace = THREE.SRGBColorSpace;
+  es.add(new THREE.Mesh(new THREE.SphereGeometry(10, 16, 16),
+    new THREE.MeshBasicMaterial({ map: domeTex, side: THREE.BackSide })));
+  const boxMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const soft1 = new THREE.Mesh(new THREE.PlaneGeometry(4, 3), boxMat);
+  soft1.position.set(4, 5, 3); soft1.lookAt(0, 0, 0); es.add(soft1);
+  const soft2 = new THREE.Mesh(new THREE.PlaneGeometry(3, 2), boxMat);
+  soft2.position.set(-5, 2, -2); soft2.lookAt(0, 0, 0); es.add(soft2);
+  scene.environment = pm.fromScene(es, 0.06).texture;
+  pm.dispose();
+}
+
+// backdrop dome: deep gradient so orbiting never shows a void
+{
+  const c = document.createElement('canvas'); c.width = 4; c.height = 256;
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0.0, '#232a38');
+  grad.addColorStop(0.55, '#12151d');
+  grad.addColorStop(1.0, '#08090d');
+  g.fillStyle = grad; g.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  scene.add(new THREE.Mesh(new THREE.SphereGeometry(30, 24, 16),
+    new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog:false })));
+}
+
+// direct lights re-balanced around the IBL
+scene.add(new THREE.HemisphereLight(0xdde6f2, 0x2c313c, 0.8));
+const key = new THREE.DirectionalLight(0xffffff, 2.2);
 key.position.set(2.4, 3.5, 2.8);
 scene.add(key);
-const fill = new THREE.DirectionalLight(0xaebbd0, 1.1);
-fill.position.set(-3, 1, -2);
-scene.add(fill);
-const front = new THREE.DirectionalLight(0xffffff, 0.9);
+const rim = new THREE.DirectionalLight(0x9fd8ff, 1.4);
+rim.position.set(-2.5, 2.4, -3.2);
+scene.add(rim);
+const front = new THREE.DirectionalLight(0xffffff, 0.55);
 front.position.set(0, 0.6, 5);
 scene.add(front);
 
@@ -167,36 +391,106 @@ try {
   throw e;
 }
 const H = manifest.base.char_height;
-camera.position.set(1.7, H * 0.26, 4.1);
-controls.target.set(0, 0, 0);
+const GROUND = -H / 2;
+const HOME = { target: new THREE.Vector3(0, 0.05, 0), dist: 4.35, hy: 0.55 };
+camera.position.set(1.7, HOME.target.y + HOME.hy, 4.0);
+controls.target.copy(HOME.target);
 resize();
 
-// soft fake ground shadow (radial gradient disc) so the character reads grounded
+// ---------- podium + floor + glow + motes ----------
+{
+  // floor: unlit radial gradient — art-directed pool of light under the podium.
+  // (A PBR floor mirrors the bright env dome at grazing angles no matter how
+  // rough/dark it is, washing the whole midground light blue.)
+  const fc = document.createElement('canvas'); fc.width = fc.height = 512;
+  const fg = fc.getContext('2d');
+  const fgrad = fg.createRadialGradient(256, 256, 20, 256, 256, 256);
+  fgrad.addColorStop(0.0, '#232b38');
+  fgrad.addColorStop(0.28, '#141a24');
+  fgrad.addColorStop(1.0, '#07080c');
+  fg.fillStyle = fgrad; fg.fillRect(0, 0, 512, 512);
+  const floorTex = new THREE.CanvasTexture(fc);
+  floorTex.colorSpace = THREE.SRGBColorSpace;
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(28, 48),
+    new THREE.MeshBasicMaterial({ map: floorTex }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = GROUND - 0.101;
+  scene.add(floor);
+  // pedestal
+  const podMat = new THREE.MeshStandardMaterial({ color: 0x14171e, roughness: 0.45,
+                                                  metalness: 0.55 });
+  podMat.envMapIntensity = 0.5;
+  const podium = new THREE.Mesh(new THREE.CylinderGeometry(1.06, 1.16, 0.1, 64), podMat);
+  podium.position.y = GROUND - 0.052;
+  scene.add(podium);
+}
+// accent ring on the podium edge — pulses gently, flashes on equip
+const ringMat = new THREE.MeshBasicMaterial({ color: 0x38e655, transparent: true, opacity: 0.55 });
+const ring = new THREE.Mesh(new THREE.TorusGeometry(1.11, 0.012, 10, 96), ringMat);
+ring.rotation.x = -Math.PI / 2;
+ring.position.y = GROUND - 0.005;
+scene.add(ring);
+let ringFlash = 0;
+
+// soft radial glow behind the character
+{
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(128, 128, 4, 128, 128, 128);
+  grad.addColorStop(0, 'rgba(110,150,190,0.35)');
+  grad.addColorStop(0.5, 'rgba(70,95,130,0.12)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 256, 256);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false,
+    blending: THREE.AdditiveBlending }));
+  spr.scale.set(7.5, 7.5, 1);
+  spr.position.set(0, 0.3, -2.6);
+  scene.add(spr);
+}
+// contact shadow under the feet
 {
   const c = document.createElement('canvas'); c.width = c.height = 256;
   const g = c.getContext('2d');
   const grad = g.createRadialGradient(128, 128, 10, 128, 128, 128);
-  grad.addColorStop(0, 'rgba(0,0,0,0.45)');
+  grad.addColorStop(0, 'rgba(0,0,0,0.5)');
   grad.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = grad; g.fillRect(0, 0, 256, 256);
-  const tex = new THREE.CanvasTexture(c);
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.15, 48),
-                              new THREE.MeshBasicMaterial({ map:tex, transparent:true,
-                                                            depthWrite:false }));
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.0, 48),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c),
+      transparent: true, depthWrite: false }));
   disc.rotation.x = -Math.PI / 2;
-  disc.position.y = -H / 2 + 0.005;
+  disc.position.y = GROUND + 0.004;
   scene.add(disc);
+}
+// drifting dust motes
+let motes = null;
+if (FX) {
+  const N = 150, pos = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const r = 0.9 + Math.random() * 2.6, a = Math.random() * Math.PI * 2;
+    pos[i * 3] = Math.cos(a) * r;
+    pos[i * 3 + 1] = GROUND + Math.random() * 2.6;
+    pos[i * 3 + 2] = Math.sin(a) * r;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  motes = new THREE.Points(geo, new THREE.PointsMaterial({
+    color: 0x9fc4dd, size: 0.014, transparent: true, opacity: 0.5,
+    blending: THREE.AdditiveBlending, depthWrite: false }));
+  scene.add(motes);
 }
 
 // ---------- base character ----------
 const baseGltf = await loadGLB(WEB + manifest.base.file).catch(e => {
   fail('Failed to load base.glb: ' + e.message); throw e;
 });
-scene.add(baseGltf.scene);
-baseGltf.scene.updateMatrixWorld(true);
+const charRoot = baseGltf.scene;
+scene.add(charRoot);
+charRoot.updateMatrixWorld(true);
 
 const bones = {}, parts = {}, boneRestInv = {};
-baseGltf.scene.traverse(o => {
+charRoot.traverse(o => {
   if (o.isBone) bones[o.name] = o;
   if (manifest.base.parts.includes(o.name)) parts[o.name] = o;
 });
@@ -205,8 +499,7 @@ for (const [n, b] of Object.entries(bones))
 
 // GLTFLoader SANITIZES node names (PropertyBinding.sanitizeNodeName strips
 // '.' among others), so the manifest's "Foot.L" is "FootL" in the loaded
-// skeleton. This exact mismatch silently dropped boots+hands in v1 (the base
-// parts were hidden, the pieces never attached — footless character).
+// skeleton. This exact mismatch silently dropped boots+hands in v1.
 const findBone = name => {
   if (!name) return null;
   return bones[name] || bones[THREE.PropertyBinding.sanitizeNodeName(name)] || null;
@@ -217,7 +510,7 @@ const baseMats = new Set();
 Object.values(parts).forEach(p => p.traverse(o => { if (o.isMesh) baseMats.add(o.material); }));
 const baseOrigMaps = new Map([...baseMats].map(m => [m, m.map]));
 
-const mixer = new THREE.AnimationMixer(baseGltf.scene);
+const mixer = new THREE.AnimationMixer(charRoot);
 const clips = baseGltf.animations || [];
 let activeAction = null;
 function playClip(name) {
@@ -229,6 +522,58 @@ function playClip(name) {
   activeAction = action;
   document.querySelectorAll('#anims button').forEach(b =>
     b.classList.toggle('active', b.dataset.clip === name));
+}
+
+// ---------- camera direction ----------
+// each slot frames the body region it edits; the camera is a cameraman
+const FRAMES = {
+  antenna:      { target: [0, 0.72, 0],  dist: 2.0, hy: 0.55 },
+  helmet_panel: { target: [0, 0.80, 0],  dist: 2.0, hy: 0.85 },
+  chest_icon:   { target: [0, 0.02, 0],  dist: 1.9, hy: 0.35 },
+  belt_charm:   { target: [0, -0.30, 0], dist: 1.7, hy: 0.15 },
+  accessory:    { target: [0, 0.15, 0],  dist: 3.1, hy: 0.75 },
+  boots:        { target: [0, -0.62, 0], dist: 2.0, hy: -0.25 },
+  hands:        { target: [0, -0.34, 0], dist: 1.9, hy: 0.10 },
+};
+// wall-clock tween: frame drops must not slow the camera move (headless
+// renderers and weak GPUs would otherwise stretch a 1.5 s sweep into minutes)
+const camRig = window.__KB._rig = { active: false, start: 0, dur: 0.85,
+  fromPos: new THREE.Vector3(), toPos: new THREE.Vector3(),
+  fromTgt: new THREE.Vector3(), toTgt: new THREE.Vector3() };
+const easeInOut = p => p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+function flyTo(tgt, dist, hy, dur = 0.85) {
+  const az = Math.atan2(camera.position.x - controls.target.x,
+                        camera.position.z - controls.target.z);
+  camRig.fromPos.copy(camera.position);
+  camRig.fromTgt.copy(controls.target);
+  camRig.toTgt.copy(tgt);
+  camRig.toPos.set(tgt.x + Math.sin(az) * dist, tgt.y + hy, tgt.z + Math.cos(az) * dist);
+  camRig.start = performance.now() / 1000; camRig.dur = dur; camRig.active = true;
+}
+function frameSlot(slot) {
+  if (!FX) return;
+  const f = FRAMES[slot];
+  if (!f) return;
+  flyTo(new THREE.Vector3(...f.target), f.dist, f.hy);
+}
+let lastInput = 0;
+controls.addEventListener('start', () => {
+  camRig.active = false;
+  lastInput = performance.now() / 1000;
+  controls.autoRotate = false;
+});
+
+// ---------- equip beats (pop-in + ring flash + starEyes blip) ----------
+const beats = [];
+function beatFor(meshes) {
+  if (!FX) return;
+  for (const m of meshes) beats.push({ obj: m, t: 0, base: m.scale.clone() });
+  ringFlash = 1;
+  if (face.imgs?.starEyes && face.cur !== 'starEyes') {
+    const back = face.cur;
+    setExpression('starEyes');
+    setTimeout(() => setExpression(back), 700);
+  }
 }
 
 // ---------- trait equipping ----------
@@ -244,7 +589,7 @@ function attachRestWorld(object3d, bone, restWorld) {
   local.decompose(object3d.position, object3d.quaternion, object3d.scale);
 }
 
-async function equip(slot, traitId) {
+async function equip(slot, traitId, fx = false) {
   const prev = equipped[slot];
   if (prev) {
     prev.meshes.forEach(m => m.parent?.remove(m));
@@ -304,6 +649,7 @@ async function equip(slot, traitId) {
     entry.hides.forEach(p => { if (parts[p]) parts[p].visible = false; });
     equipped[slot] = entry;
     if (accentBySlot[slot]) applyAccent(slot, accentBySlot[slot]);
+    if (fx) beatFor(entry.meshes);
   } else if ((t.attachments || []).length > 0) {
     recordFail(`"${t.label}" attached 0 of ${t.attachments.length} pieces — base left visible`);
   }
@@ -312,29 +658,26 @@ async function equip(slot, traitId) {
 }
 
 // ---------- animated face ----------
-// The base texture's face is a static baked-in smile on fragmented UV islands,
-// so expressions are played on a separate "face_screen" overlay mesh (shrink-
-// wrapped onto the CRT glass by export_web_bundle) whose texture is a live
-// canvas: black LED panel + the normalized expression sprites, with crossfade
-// and an automatic blink (a quick dip to 'relieved', whose closed-arc eyes
-// read as a blink).
+// Expressions play on the "face_screen" overlay mesh (shrinkwrapped onto the
+// CRT glass by export_web_bundle): a live canvas — black LED panel + the
+// normalized expression sprites — with crossfade and an automatic blink.
 const face = { cur: 'idle', prev: null, fade: 1, imgs: {}, canvas: null,
                tex: null, blinkT: 0, nextBlink: 3.0, blinking: false };
 
 function drawFace() {
   const ctx = face.canvas.getContext('2d');
-  const W = 512, H = 512;
-  ctx.clearRect(0, 0, W, H);
+  const W = 512, Hc = 512;
+  ctx.clearRect(0, 0, W, Hc);
   ctx.save();
   ctx.beginPath();
-  ctx.roundRect(6, 6, W - 12, H - 12, 70);
+  ctx.roundRect(6, 6, W - 12, Hc - 12, 70);
   ctx.clip();
   ctx.fillStyle = '#050705';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, W, Hc);
   ctx.strokeStyle = 'rgba(70,110,70,0.10)';   // faint LED grid
   ctx.lineWidth = 1;
   for (let i = 16; i < W; i += 16) {
-    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, Hc); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke();
   }
   const draw = (id, a) => {
@@ -345,7 +688,7 @@ function drawFace() {
     // the screen mesh's u axis runs along world +x, which the front camera
     // sees right-to-left — mirror the sprite so glyphs read correctly
     ctx.save(); ctx.translate(W, 0); ctx.scale(-1, 1);
-    ctx.drawImage(im, 30, 30, W - 60, H - 60);
+    ctx.drawImage(im, 30, 30, W - 60, Hc - 60);
     ctx.restore();
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
@@ -398,8 +741,7 @@ async function initFace() {
   drawFace();
   window.__KB.face = face.cur;
   window.__KB.setFace = setExpression;
-  // debug: flood the screen canvas with a solid color to see exactly what
-  // area the overlay mesh covers (used by the E2E/fit tooling)
+  // debug: flood the screen canvas to see exactly what the overlay covers
   window.__KB.paintFace = color => {
     const ctx = face.canvas.getContext('2d');
     ctx.globalCompositeOperation = 'source-over';
@@ -423,7 +765,8 @@ function renderFace() {
     b.title = e.id;
     b.classList.toggle('active', e.id === face.cur);
     b.innerHTML = `<img src="${WEB + e.file}" alt="${e.id}">`;
-    b.onclick = () => setExpression(e.id);
+    b.onclick = () => { pushHistory(); setExpression(e.id); sfx.swatch(); };
+    b.onmouseenter = sfx.hover;
     row.appendChild(b);
   }
 }
@@ -432,9 +775,8 @@ function renderFace() {
 const texLoader = new THREE.TextureLoader();
 const colorwayTex = {};
 // plating skin (second recolor axis over the enamel shells) + yarn colorway
-// compose as a filename: <plating.prefix><colorway id>.jpg. The capsule
-// plating with no colorway selected restores the original baked texture.
-let activePlating = null;   // null until manifest.platings renders; entry {id, prefix}
+// compose as a filename: <plating.prefix><colorway id>.jpg
+let activePlating = null;   // entry {id, prefix} once platings render
 let activeYarn = null;      // colorway entry or null (default charcoal)
 
 function applyBaseMap() {
@@ -480,44 +822,113 @@ function applyAccent(slot, hex) {
     el.classList.toggle('selected', el.dataset.hex === (hex || '')));
 }
 
+// ---------- op queue ----------
+// loadout mutations are serialized so a click during an in-flight randomize/
+// undo can't interleave equips (late loads would overwrite the newer state).
+// __KB.ops exposes the in-flight count for the E2E to await.
+let opChain = Promise.resolve();
+window.__KB.ops = 0;
+function runOp(fn) {
+  window.__KB.ops++;
+  opChain = opChain.then(fn).catch(e => recordFail('op failed: ' + e.message))
+                   .finally(() => { window.__KB.ops--; });
+  return opChain;
+}
+
+// ---------- history (undo) ----------
+const history = [];
+const undoBtn = document.getElementById('undoBtn');
+function snapshot() {
+  return { sel: { ...selection }, acc: { ...accentBySlot },
+           plating: activePlating?.id ?? null, yarn: activeYarn?.id ?? null,
+           face: face.cur };
+}
+function pushHistory() {
+  history.push(snapshot());
+  if (history.length > 24) history.shift();
+  undoBtn.disabled = false;
+}
+async function applySnapshot(s) {
+  for (const slot of Object.keys(manifest.slots)) {
+    if ((selection[slot] ?? null) !== (s.sel[slot] ?? null))
+      await equip(slot, s.sel[slot] ?? null);
+  }
+  const ps = manifest.platings || [];
+  applyPlating(ps.find(p => p.id === s.plating) ?? ps[0] ?? null);
+  const cws = manifest.colorways || [];
+  applyYarn(cws.find(c => c.id === s.yarn) ?? null);
+  for (const [slot, hex] of Object.entries(s.acc)) applyAccent(slot, hex ?? null);
+  applyAccent(activeSlot, s.acc[activeSlot] ?? null);
+  if (s.face) setExpression(s.face);
+  refreshTiles();
+}
+undoBtn.onclick = () => runOp(async () => {
+  const s = history.pop();
+  if (!s) return;
+  undoBtn.disabled = history.length === 0;
+  await applySnapshot(s);
+  toast('Undone');
+  sfx.tab();
+});
+
 // ---------- UI ----------
 const tabsEl = document.getElementById('tabs');
 const tilesEl = document.getElementById('tiles');
 const slotOrder = Object.keys(manifest.slots);
 let activeSlot = slotOrder[0];
+const SLOT_ICONS = { antenna:'📡', helmet_panel:'⬡', chest_icon:'⭐', belt_charm:'⚙️',
+                     accessory:'🎒', boots:'🥾', hands:'🧤' };
 
 function renderTabs() {
   tabsEl.innerHTML = '';
   for (const slot of slotOrder) {
     const b = document.createElement('button');
-    b.textContent = manifest.slots[slot].label;
+    b.innerHTML = `<span>${SLOT_ICONS[slot] ?? '◇'}</span>${manifest.slots[slot].label}`;
     b.classList.toggle('active', slot === activeSlot);
-    b.onclick = () => { activeSlot = slot; renderTabs(); renderTiles(); renderAccent(); };
+    b.onclick = () => { activeSlot = slot; renderTabs(); renderTiles(); renderAccent();
+                        frameSlot(slot); sfx.tab(); };
+    b.onmouseenter = sfx.hover;
     tabsEl.appendChild(b);
   }
 }
 
-function tile(imgSrc, label, selected, onclick) {
+function tile(imgSrc, label, selected, onclick, idx) {
   const fig = document.createElement('button');
-  fig.className = 'tile' + (selected ? ' selected' : '');
+  fig.className = 'tile in' + (selected ? ' selected' : '');
+  fig.style.animationDelay = (idx * 40) + 'ms';
   fig.innerHTML = `<img src="${imgSrc}" alt=""><figcaption>${label}</figcaption>`;
   fig.onclick = onclick;
+  fig.onmouseenter = sfx.hover;
   return fig;
 }
 
 function renderTiles() {
   tilesEl.innerHTML = '';
   const cur = selection[activeSlot] || null;
-  tilesEl.appendChild(tile(WEB + 'tiles/none.jpg', 'None', cur === null, async () => {
-    say('removing…'); await equip(activeSlot, null); say('ready');
-  }));
+  tilesEl.appendChild(tile(WEB + 'tiles/none.jpg', 'None', cur === null, () => runOp(async () => {
+    pushHistory(); say('removing…'); await equip(activeSlot, null); say('ready'); sfx.swatch();
+  }), 0));
+  let i = 1;
   for (const t of manifest.traits.filter(t => t.slot === activeSlot)) {
-    tilesEl.appendChild(tile(WEB + `tiles/${t.id}.jpg`, t.label, cur === t.id, async () => {
-      say('equipping ' + t.label + '…'); await equip(activeSlot, t.id); say('ready');
-    }));
+    tilesEl.appendChild(tile(WEB + `tiles/${t.id}.jpg`, t.label, cur === t.id, () => runOp(async () => {
+      pushHistory(); say('equipping ' + t.label + '…');
+      await equip(activeSlot, t.id, true);
+      say('ready'); sfx.equip();
+    }), i++));
   }
 }
-const refreshTiles = () => { renderTiles(); };
+// re-sync selection states without replaying the entry animation
+const refreshTiles = () => {
+  const cur = selection[activeSlot] || null;
+  const nodes = [...tilesEl.querySelectorAll('.tile')];
+  if (!nodes.length) return renderTiles();
+  nodes.forEach(n => {
+    const label = n.querySelector('figcaption')?.textContent;
+    const isNone = label === 'None';
+    const t = manifest.traits.find(t => t.slot === activeSlot && t.label === label);
+    n.classList.toggle('selected', isNone ? cur === null : (t && cur === t.id));
+  });
+};
 
 function renderAccent() {
   document.getElementById('accentSlot').textContent =
@@ -529,14 +940,15 @@ function renderAccent() {
   none.style.background =
     'linear-gradient(135deg,#fff 45%,#f33 45%,#f33 55%,#fff 55%)';
   none.title = 'no tint';
-  none.onclick = () => applyAccent(activeSlot, null);
+  none.onclick = () => { pushHistory(); applyAccent(activeSlot, null); sfx.swatch(); };
   row.appendChild(none);
   for (const [id, th] of Object.entries(manifest.themes || {})) {
     const el = document.createElement('div');
     el.className = 'sw'; el.dataset.hex = th.accent;
     el.style.background = th.accent;
     el.title = th.label;
-    el.onclick = () => applyAccent(activeSlot, th.accent);
+    el.onclick = () => { pushHistory(); applyAccent(activeSlot, th.accent); sfx.swatch(); };
+    el.onmouseenter = sfx.hover;
     row.appendChild(el);
   }
   applyAccent(activeSlot, accentBySlot[activeSlot] ?? null);
@@ -554,7 +966,8 @@ function renderYarn() {
     el.className = 'sw'; el.dataset.id = cw.id;
     el.style.background = cw.hex;
     el.title = cw.label;
-    el.onclick = () => applyYarn(cw.file ? cw : null);
+    el.onclick = () => { pushHistory(); applyYarn(cw.file ? cw : null); sfx.swatch(); };
+    el.onmouseenter = sfx.hover;
     row.appendChild(el);
   }
   applyYarn(null);
@@ -572,7 +985,8 @@ function renderPlatings() {
     el.className = 'sw'; el.dataset.id = p.id;
     el.style.background = p.hex;
     el.title = p.label;
-    el.onclick = () => applyPlating(p);
+    el.onclick = () => { pushHistory(); applyPlating(p); sfx.swatch(); };
+    el.onmouseenter = sfx.hover;
     row.appendChild(el);
   }
   applyPlating(ps[0]);
@@ -586,10 +1000,52 @@ function renderAnims() {
   for (const w of (wanted.length ? wanted : names.slice(0, 3))) {
     const b = document.createElement('button');
     b.textContent = w; b.dataset.clip = w;
-    b.onclick = () => playClip(w);
+    b.onclick = () => { playClip(w); sfx.tab(); };
+    b.onmouseenter = sfx.hover;
     row.appendChild(b);
   }
 }
+
+// ---------- randomize / reset ----------
+const rnd = a => a[Math.floor(Math.random() * a.length)];
+document.getElementById('randBtn').onclick = () => runOp(async () => {
+  pushHistory();
+  say('randomizing…');
+  for (const slot of slotOrder) {
+    const options = manifest.traits.filter(t => t.slot === slot);
+    const pick = Math.random() < 0.85 ? rnd(options)?.id ?? null : null;
+    await equip(slot, pick, slot === activeSlot);
+  }
+  const ps = manifest.platings || [];
+  if (ps.length) applyPlating(rnd(ps));
+  const cws = manifest.colorways || [];
+  if (cws.length) applyYarn(rnd(cws));
+  const themes = Object.values(manifest.themes || {});
+  for (const slot of slotOrder)
+    applyAccent(slot, Math.random() < 0.35 && themes.length ? rnd(themes).accent : null);
+  applyAccent(activeSlot, accentBySlot[activeSlot] ?? null);
+  const faces = Object.keys(face.imgs);
+  if (faces.length) setExpression(rnd(faces));
+  refreshTiles();
+  say('ready');
+  toast('Randomized! 🎲');
+  sfx.equip();
+});
+
+document.getElementById('resetBtn').onclick = () => runOp(async () => {
+  pushHistory();
+  say('resetting…');
+  await applySnapshot({ sel: manifest.presets.pilot ?? {}, acc: {},
+                        plating: 'capsule', yarn: null, face: 'idle' });
+  say('ready');
+  toast('Back to default');
+  sfx.tab();
+});
+
+// ---------- name ----------
+const nameInput = document.getElementById('bitName');
+nameInput.value = localStorage.getItem('kb_name') ?? '';
+nameInput.oninput = () => localStorage.setItem('kb_name', nameInput.value);
 
 renderTabs(); renderTiles(); renderAccent(); renderPlatings(); renderYarn(); renderAnims();
 playClip('Idle');
@@ -601,11 +1057,36 @@ for (const [slot, tid] of Object.entries(manifest.presets.pilot ?? {})) {
 await initFace();
 renderFace();
 
-// ---------- profile picture (main renderer: a second WebGL context can't see
-// this scene's GPU resources and captures an empty image) ----------
+// ---------- confetti ----------
+let confetti = null;
+function burstConfetti() {
+  if (!FX) return;
+  const N = 120;
+  const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), vel = [];
+  const themes = Object.values(manifest.themes || {});
+  const c3 = new THREE.Color();
+  for (let i = 0; i < N; i++) {
+    pos[i * 3] = (Math.random() - 0.5) * 0.4;
+    pos[i * 3 + 1] = 0.9 + Math.random() * 0.4;
+    pos[i * 3 + 2] = (Math.random() - 0.5) * 0.4;
+    c3.set(themes.length ? rnd(themes).accent : '#38e655');
+    col[i * 3] = c3.r; col[i * 3 + 1] = c3.g; col[i * 3 + 2] = c3.b;
+    const a = Math.random() * Math.PI * 2, s = 0.8 + Math.random() * 1.6;
+    vel.push([Math.cos(a) * s * 0.6, 1.6 + Math.random() * 1.4, Math.sin(a) * s * 0.6]);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+    size: 0.045, vertexColors: true, transparent: true, opacity: 1, depthWrite: false }));
+  scene.add(pts);
+  confetti = { pts, vel, t: 0 };
+}
+
+// ---------- save look (the finale) ----------
 const pfpSize = 512;
 const pfpCam = new THREE.OrthographicCamera(-H*0.36, H*0.36, H*0.36, -H*0.36, 0.05, 60);
-document.getElementById('pfpBtn').onclick = () => {
+function capturePFP() {
   const aim = new THREE.Vector3(0, H * 0.30, 0);
   const a = THREE.MathUtils.degToRad(22);
   pfpCam.position.set(4 * Math.sin(a), aim.y, 4 * Math.cos(a));
@@ -617,13 +1098,62 @@ document.getElementById('pfpBtn').onclick = () => {
   const url = renderer.domElement.toDataURL('image/png');
   renderer.setPixelRatio(prevPR);
   resize();
-  document.getElementById('avatar').src = url;
+  return url;
+}
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let saving = false;
+document.getElementById('pfpBtn').onclick = async () => {
+  if (saving) return;
+  saving = true;
+  say('saving your look…');
+  sfx.save();
+  if (FX) {
+    flyTo(new THREE.Vector3(0, 0.1, 0), 4.0, 0.75, 1.0);
+    playClip('Wave');
+    if (face.imgs.starEyes) setExpression('starEyes');
+    burstConfetti();
+    await wait(1150);
+    const fl = document.getElementById('flash');
+    fl.classList.add('on');
+    requestAnimationFrame(() => requestAnimationFrame(() => fl.classList.remove('on')));
+  }
+  const url = capturePFP();
+  const av = document.getElementById('avatar');
+  av.src = url;
+  av.classList.add('captured');
   document.getElementById('avatarState').textContent = 'profile picture applied ✓';
   const dl = document.getElementById('pfpDl');
   dl.href = url; dl.hidden = false;
-  say('profile picture captured');
+  // summary card
+  const name = nameInput.value.trim() || 'Unnamed Bit';
+  document.getElementById('cardImg').src = url;
+  document.getElementById('cardName').textContent = name;
+  document.getElementById('cardDl').href = url;
+  const chips = document.getElementById('cardChips');
+  chips.innerHTML = '';
+  const chip = txt => { const s = document.createElement('span'); s.textContent = txt; chips.appendChild(s); };
+  for (const [slot, tid] of Object.entries(selection))
+    if (tid && traitById[tid]) chip(traitById[tid].label);
+  chip('yarn: ' + (activeYarn?.label ?? 'Charcoal'));
+  if (activePlating && activePlating.id !== 'capsule') chip(activePlating.label);
+  document.getElementById('cardWrap').hidden = false;
+  say('look saved');
   window.__KB.pfp = true;
+  saving = false;
 };
+document.getElementById('cardClose').onclick = () => {
+  document.getElementById('cardWrap').hidden = true;
+  if (FX) { playClip('Idle'); flyTo(HOME.target, HOME.dist, HOME.hy); }
+};
+
+// ---------- intro ----------
+document.getElementById('panel').classList.add('slide-in');
+if (FX) {
+  const az0 = 0.45;
+  camera.position.set(Math.sin(az0) * 7.5, 3.2, Math.cos(az0) * 7.5);
+  controls.target.set(0, 0.6, 0);
+  flyTo(HOME.target, HOME.dist, HOME.hy, 1.5);
+}
 
 // ---------- animation loop ----------
 const clock = new THREE.Clock();
@@ -652,6 +1182,59 @@ renderer.setAnimationLoop(() => {
   }
   prevHipX = hips ? hips.rotation.z : 0;
 
+  // camera tween (interrupted by user input via controls 'start')
+  if (camRig.active) {
+    const p = Math.min(1, (performance.now() / 1000 - camRig.start) / camRig.dur);
+    const e = easeInOut(p);
+    camera.position.lerpVectors(camRig.fromPos, camRig.toPos, e);
+    controls.target.lerpVectors(camRig.fromTgt, camRig.toTgt, e);
+    if (p >= 1) camRig.active = false;
+  }
+  // idle turntable after 8 s without input
+  if (FX) controls.autoRotate =
+    !camRig.active && (performance.now() / 1000 - lastInput > 8);
+
+  // podium ring pulse + equip flash
+  ringFlash = Math.max(0, ringFlash - dt * 2.2);
+  ringMat.opacity = 0.4 + Math.sin(t * 1.8) * 0.12 + ringFlash * 0.6;
+  ring.scale.setScalar(1 + ringFlash * 0.05);
+
+  // equip pop-in beats
+  for (let i = beats.length - 1; i >= 0; i--) {
+    const b = beats[i];
+    b.t += dt;
+    const p = Math.min(1, b.t / 0.32);
+    const s = 1 + Math.sin(p * Math.PI) * 0.22 * (1 - p * 0.5);
+    b.obj.scale.copy(b.base).multiplyScalar(s);
+    if (p >= 1) { b.obj.scale.copy(b.base); beats.splice(i, 1); }
+  }
+
+  // dust motes drift
+  if (motes) {
+    const a = motes.geometry.attributes.position;
+    for (let i = 0; i < a.count; i++) {
+      let y = a.getY(i) + dt * 0.03;
+      if (y > GROUND + 2.7) y = GROUND;
+      a.setY(i, y);
+    }
+    a.needsUpdate = true;
+    motes.rotation.y += dt * 0.01;
+  }
+
+  // confetti physics
+  if (confetti) {
+    confetti.t += dt;
+    const a = confetti.pts.geometry.attributes.position;
+    for (let i = 0; i < a.count; i++) {
+      const v = confetti.vel[i];
+      v[1] -= 2.6 * dt;
+      a.setXYZ(i, a.getX(i) + v[0] * dt, a.getY(i) + v[1] * dt, a.getZ(i) + v[2] * dt);
+    }
+    a.needsUpdate = true;
+    confetti.pts.material.opacity = Math.max(0, 1 - confetti.t / 2.2);
+    if (confetti.t > 2.3) { scene.remove(confetti.pts); confetti = null; }
+  }
+
   // face: expression crossfade + automatic blink
   if (face.tex) {
     let dirty = false;
@@ -673,7 +1256,11 @@ renderer.setAnimationLoop(() => {
 
 // debug hook: world-space state of every equipped piece + base part visibility
 window.__KB.debug = () => {
-  const out = { pieces: [], parts: {} };
+  const out = { pieces: [], parts: {},
+    camera: [+camera.position.x.toFixed(3), +camera.position.y.toFixed(3),
+             +camera.position.z.toFixed(3)],
+    target: [+controls.target.x.toFixed(3), +controls.target.y.toFixed(3),
+             +controls.target.z.toFixed(3)] };
   const v = new THREE.Vector3();
   for (const [slot, e] of Object.entries(equipped)) {
     for (const m of e.meshes) {
