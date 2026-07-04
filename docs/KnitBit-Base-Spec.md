@@ -141,7 +141,7 @@ Prove the base before scaling traits:
 2. Build front / 3-4 / side / back reference sheet ✅
 3. Define skeleton + socket map ✅ *(§3–4; sockets applied in Blender)*
 4. Validate one small **pilot** accessory set ✅ *(Phase A done — see below)*
-5. Build the full Master Trait Diagram sheet *(next)*
+5. Build the full Master Trait Diagram sheet ✅ *(see §9 — generated from the manifest)*
 6. Produce trait families by category
 7. Produce theme packs
 8. Build compatibility + rarity rules
@@ -365,6 +365,29 @@ Keep two sheet types separate:
 
 Do not cram every production part onto one mega-sheet — pieces end up too small and
 inconsistent to isolate for 3D conversion.
+
+### Master Trait Diagram — generated
+
+**Status: done (pilot library).** The Master Trait Diagram is produced from the
+manifest, not hand-laid-out, so it stays in sync as traits are added:
+
+```
+blender --background --python tools/render_trait_thumbs.py   # 1 isolated thumb per trait
+python3 tools/build_master_sheet.py                          # compose the sheet
+```
+
+- `tools/render_trait_thumbs.py` renders every `manifest.traits` entry (and the
+  base) to a consistent transparent-background thumbnail in
+  `assets/3d/knitbit_base/thumbs/`.
+- `tools/build_master_sheet.py` composes `knitbit_master_trait_diagram.png`: each
+  trait **category** with its option thumbnails, every option tagged by its
+  **theme color** (from the new `manifest.themes` block — the §7 legend as data),
+  a `dynamic · swings` marker on categories with a `dynamic` block, the **planned
+  categories** not yet built, and the full **theme palette legend** with hexes.
+
+This is the wide planning/style-approval overview. The per-category Production
+Part Sheets (for clean 3D conversion) are still produced one category at a time
+as each family is built (step 6).
 
 ---
 

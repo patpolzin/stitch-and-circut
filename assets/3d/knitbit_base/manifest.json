@@ -57,6 +57,20 @@
     }
   },
 
+  "themes": {
+    "_comment": "The spec-section-7 theme legend as data. Neutral base = charcoal yarn; each theme is produced later by a yarn material-swap to `accent` plus theme-specific accessories. `accent` doubles as the label/generation reference color and drives the Master Trait Diagram swatches. Each trait carries a `theme` tag keyed to these.",
+    "neutral": { "label": "Neutral / Base", "accent": "#C9CDD2", "accent2": null, "yarn": "charcoal" },
+    "scout":   { "label": "Scout",   "accent": "#1FA6A0", "accent2": null },
+    "tank":    { "label": "Tank",    "accent": "#C4622D", "accent2": null },
+    "arcade":  { "label": "Arcade",  "accent": "#FF2D95", "accent2": null },
+    "maker":   { "label": "Maker",   "accent": "#E7B416", "accent2": null },
+    "wizard":  { "label": "Wizard",  "accent": "#7A3FC4", "accent2": null },
+    "music":   { "label": "Music",   "accent": "#2D7DFF", "accent2": null },
+    "ghost":   { "label": "Ghost",   "accent": "#7FE0D4", "accent2": null },
+    "pixel":   { "label": "Pixel",   "accent": "#38E655", "accent2": null },
+    "garden":  { "label": "Garden",  "accent": "#4FA82E", "accent2": "#F06FA0" }
+  },
+
   "traits": [
     {
       "id": "antenna_classic",
