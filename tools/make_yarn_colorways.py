@@ -67,6 +67,17 @@ COLORWAYS = [
 ]
 WEB_SIZE = 1024
 
+# Plating skins: a second recolor axis over the ENAMEL shells (everything the
+# yarn mask doesn't own that is bright and desaturated). `prefix` is the web
+# filename prefix for that skin's colorway set; capsule keeps the historical
+# `yarn_` prefix so existing editors don't break. Porcelain is the mockup-D
+# "porcelain tech" look (refs/restyle_d_porcelain_tech.png): near-white pearl
+# shells, dark accents untouched.
+PLATINGS = [
+    ("capsule",   "Capsule (default)", "#D9D5CC", None, None),
+    ("porcelain", "Porcelain",         "#F2F1F4", "#F2F1F4", 0.02),
+]
+
 
 def extract_basecolor(glb_path):
     """Return (PIL.Image baseColor, image_name) from a GLB's material 0."""
@@ -155,6 +166,19 @@ def amplify_normal(nm, mask, amp=2.0):
     n[..., 1] *= (1 + (amp - 1) * m[..., 0])
     n /= np.sqrt((n ** 2).sum(-1, keepdims=True)).clip(1e-6)
     return Image.fromarray(((n + 1) / 2 * 255).astype(np.uint8))
+
+
+def build_plating_mask(src, yarn_mask):
+    """Enamel-shell mask: bright, desaturated pixels OUTSIDE the yarn mask.
+    Excludes the dark accents and the screen so a plating recolor keeps the
+    two-tone read."""
+    a = np.asarray(src).astype(np.float32) / 255
+    _, sat, val = rgb_to_hsv_arrays(a)
+    ym = np.asarray(yarn_mask).astype(np.float32) / 255
+    hard = (sat < 0.30) & (val > 0.35) & (ym < 0.5)
+    mask = Image.fromarray((hard * 255).astype(np.uint8))
+    mask = mask.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))
+    return mask.filter(ImageFilter.GaussianBlur(1.2))
 
 
 def build_mask(src):
@@ -268,23 +292,37 @@ def main():
         nm_amp.save(nm_path)
         print("[colorways] normal map amplified in yarn region")
 
-    manifest_entries = []
-    for cw_id, label, hex_color, sat in COLORWAYS:
-        full = src if hex_color is None else recolor(src, mask, hex_color, sat)
-        if cw_id == "charcoal":
-            full.save(os.path.join(TEX_DIR, "base_color_charcoal.png"))
-        web = full.resize((WEB_SIZE, WEB_SIZE), Image.LANCZOS)
-        fname = f"yarn_{cw_id}.jpg"
-        web.save(os.path.join(WEB_DIR, fname), quality=88)
-        swatch = hex_color or "#C0344B"
-        manifest_entries.append(
-            {"id": cw_id, "label": label, "hex": swatch, "file": fname})
-        print(f"[colorways] wrote web/{fname}")
+    # plating skins: recolor the enamel shells once per plating, then run the
+    # yarn colorways over each -> full plating x colorway matrix
+    plating_mask = build_plating_mask(src, mask)
+    plating_mask.save(os.path.join(TEX_DIR, "plating_mask.png"))
+    pcover = np.asarray(plating_mask).astype(np.float32).mean() / 255.0
+    print(f"[colorways] plating mask coverage: {pcover * 100:.1f}%")
+
+    cw_entries = []
+    plating_entries = []
+    for p_id, p_label, p_swatch, p_hex, p_sat in PLATINGS:
+        base_tex = src if p_hex is None else recolor(src, plating_mask, p_hex, p_sat)
+        prefix = "yarn_" if p_id == "capsule" else f"{p_id}_"
+        plating_entries.append(
+            {"id": p_id, "label": p_label, "hex": p_swatch, "prefix": prefix})
+        for cw_id, label, hex_color, sat in COLORWAYS:
+            full = base_tex if hex_color is None else recolor(base_tex, mask, hex_color, sat)
+            if p_id == "capsule" and cw_id == "charcoal":
+                full.save(os.path.join(TEX_DIR, "base_color_charcoal.png"))
+            web = full.resize((WEB_SIZE, WEB_SIZE), Image.LANCZOS)
+            fname = f"{prefix}{cw_id}.jpg"
+            web.save(os.path.join(WEB_DIR, fname), quality=88)
+            if p_id == "capsule":
+                cw_entries.append({"id": cw_id, "label": label,
+                                   "hex": hex_color or "#C0344B", "file": fname})
+        print(f"[colorways] wrote {len(COLORWAYS)} textures for plating '{p_id}' "
+              f"(web/{prefix}*.jpg)")
 
     with open(os.path.join(TEX_DIR, "colorways.json"), "w") as f:
-        json.dump(manifest_entries, f, indent=1)
+        json.dump({"colorways": cw_entries, "platings": plating_entries}, f, indent=1)
     print(f"[colorways] wrote textures/colorways.json "
-          f"({len(manifest_entries)} colorways)")
+          f"({len(cw_entries)} colorways x {len(plating_entries)} platings)")
 
     # Re-embed charcoal into the canonical GLB via headless Blender.
     script = REEMBED_TEMPLATE.format(

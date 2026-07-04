@@ -433,6 +433,20 @@
       "file": "yarn_garden.jpg"
     }
   ],
+  "platings": [
+    {
+      "id": "capsule",
+      "label": "Capsule (default)",
+      "hex": "#D9D5CC",
+      "prefix": "yarn_"
+    },
+    {
+      "id": "porcelain",
+      "label": "Porcelain",
+      "hex": "#F2F1F4",
+      "prefix": "porcelain_"
+    }
+  ],
   "face": {
     "file": "face_screen.glb",
     "bone": "Head",

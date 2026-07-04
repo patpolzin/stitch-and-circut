@@ -646,7 +646,7 @@ browser editor (one prop: 32k verts + ~13.5 MB textures; one assembled GLB:
 | `base.glb` (4 MB) | Idle-animated rigged base, body **split into named toggleable parts** (`base_core`, `base_hand_l/r`, `base_foot_l/r`, cut along the same `mesh_regions` windows) — the editor equips boots/hands by toggling part visibility, no client-side vertex surgery. Textures ≤1024. |
 | `piece_<trait>.glb` (0.6–1.4 MB each) | Every trait, exact builder placement, baked to world space, decimated to ≤9k tris, textures ≤512, `knitbit_attach_bone`/pivot extras on each node. |
 | `manifest.web.json` | Slots, traits (file/attachments/hides), themes, **colorways**, presets — everything the editor needs. |
-| `web/yarn_<theme>.jpg` + `web/tiles/*.jpg` | Runtime yarn colorway textures (11, from `tools/make_yarn_colorways.py`) and 160px photo tiles (from the trait thumbs) for the editor's tile grid. |
+| `web/yarn_<theme>.jpg`, `web/porcelain_<theme>.jpg` + `web/tiles/*.jpg` | Runtime skin textures: the full **plating x colorway matrix** (2 platings x 11 yarn colorways, from `tools/make_yarn_colorways.py`) plus 160px photo tiles for the editor's tile grid. Platings are a second recolor axis over the enamel shells: `capsule` (default, the v3 look) and `porcelain` (near-white pearl per the mockup-D alternate, `refs/restyle_d_porcelain_tech.png`); dark accents stay untouched so the two-tone reads. The editor's Plating swatch row composes with the Yarn row via filename prefix. |
 
 `demos/knitbit_builder.html` (three.js, vendored in `demos/vendor/`) is the
 customization platform prototype, **v2 UI** per user direction — no dropdowns:

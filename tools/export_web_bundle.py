@@ -270,12 +270,21 @@ def write_manifest(parts, piece_meta, face_entries=None):
     # list in textures/colorways.json. Optional so the export still works on a
     # checkout that never ran the colorway tool.
     colorways = []
+    platings = []
     cw_path = os.path.join(ASSET, "textures", "colorways.json")
     if os.path.exists(cw_path):
         with open(cw_path) as f:
-            colorways = json.load(f)
-        missing = [c["file"] for c in colorways
-                   if not os.path.exists(os.path.join(WEB, c["file"]))]
+            cw_data = json.load(f)
+        if isinstance(cw_data, dict):   # plating-aware format
+            colorways = cw_data.get("colorways", [])
+            platings = cw_data.get("platings", [])
+        else:                            # legacy flat list
+            colorways = cw_data
+        missing = [f"{p['prefix']}{c['id']}.jpg"
+                   for p in (platings or [{"prefix": "yarn_"}])
+                   for c in colorways
+                   if not os.path.exists(os.path.join(
+                       WEB, f"{p['prefix']}{c['id']}.jpg"))]
         if missing:
             print(f"[web] WARNING: colorway textures missing: {missing}")
     out = {
@@ -285,6 +294,7 @@ def write_manifest(parts, piece_meta, face_entries=None):
         "traits": traits,
         "themes": themes,
         "colorways": colorways,
+        "platings": platings,
         "face": {"file": "face_screen.glb", "bone": "Head",
                  "expressions": face_entries or []},
         "presets": {name: p["loadout"] for name, p in M["presets"].items()},

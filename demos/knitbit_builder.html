@@ -82,6 +82,8 @@
     </div>
     <div id="tabs"></div>
     <div id="tiles"></div>
+    <div class="sect" id="platingSect" hidden>Plating</div>
+    <div class="swatches" id="platingSw" hidden></div>
     <div class="sect" id="yarnSect" hidden>Yarn color</div>
     <div class="swatches" id="yarnSw" hidden></div>
     <div class="sect">Accent color <span id="accentSlot" style="text-transform:none"></span></div>
@@ -429,22 +431,45 @@ function renderFace() {
 // ---------- colors ----------
 const texLoader = new THREE.TextureLoader();
 const colorwayTex = {};
-function applyYarn(cw) {
-  document.querySelectorAll('#yarnSw .sw').forEach(el =>
-    el.classList.toggle('selected', el.dataset.id === (cw ? cw.id : 'default')));
-  if (!cw || !cw.file) {   // default: restore original baked texture
+// plating skin (second recolor axis over the enamel shells) + yarn colorway
+// compose as a filename: <plating.prefix><colorway id>.jpg. The capsule
+// plating with no colorway selected restores the original baked texture.
+let activePlating = null;   // null until manifest.platings renders; entry {id, prefix}
+let activeYarn = null;      // colorway entry or null (default charcoal)
+
+function applyBaseMap() {
+  const capsule = !activePlating || activePlating.id === 'capsule';
+  if (capsule && !activeYarn) {   // factory default: original baked texture
     for (const [m, map] of baseOrigMaps) { m.map = map; m.needsUpdate = true; }
     return;
   }
-  colorwayTex[cw.id] ??= new Promise(res => texLoader.load(WEB + cw.file, tex => {
+  const prefix = activePlating ? activePlating.prefix : 'yarn_';
+  const file = prefix + (activeYarn ? activeYarn.id : 'charcoal') + '.jpg';
+  colorwayTex[file] ??= new Promise(res => texLoader.load(WEB + file, tex => {
     tex.flipY = false;                       // glTF UV convention
     tex.colorSpace = THREE.SRGBColorSpace;
     res(tex);
-  }, undefined, () => { recordFail('Failed to load colorway ' + cw.file); res(null); }));
-  colorwayTex[cw.id].then(tex => {
+  }, undefined, () => { recordFail('Failed to load skin texture ' + file); res(null); }));
+  colorwayTex[file].then(tex => {
     if (!tex) return;
     for (const m of baseMats) { m.map = tex; m.needsUpdate = true; }
   });
+}
+
+function applyYarn(cw) {
+  activeYarn = (cw && cw.id) ? cw : null;
+  window.__KB.yarn = activeYarn ? activeYarn.id : 'default';
+  document.querySelectorAll('#yarnSw .sw').forEach(el =>
+    el.classList.toggle('selected', el.dataset.id === (cw ? cw.id : 'default')));
+  applyBaseMap();
+}
+
+function applyPlating(p) {
+  activePlating = p;
+  window.__KB.plating = p ? p.id : 'capsule';
+  document.querySelectorAll('#platingSw .sw').forEach(el =>
+    el.classList.toggle('selected', el.dataset.id === (p ? p.id : 'capsule')));
+  applyBaseMap();
 }
 
 function applyAccent(slot, hex) {
@@ -535,6 +560,24 @@ function renderYarn() {
   applyYarn(null);
 }
 
+function renderPlatings() {
+  const ps = manifest.platings || [];
+  if (ps.length < 2) return;   // only one skin -> nothing to pick
+  document.getElementById('platingSect').hidden = false;
+  const row = document.getElementById('platingSw');
+  row.hidden = false;
+  row.innerHTML = '';
+  for (const p of ps) {
+    const el = document.createElement('div');
+    el.className = 'sw'; el.dataset.id = p.id;
+    el.style.background = p.hex;
+    el.title = p.label;
+    el.onclick = () => applyPlating(p);
+    row.appendChild(el);
+  }
+  applyPlating(ps[0]);
+}
+
 function renderAnims() {
   const row = document.getElementById('anims');
   row.innerHTML = '';
@@ -548,7 +591,7 @@ function renderAnims() {
   }
 }
 
-renderTabs(); renderTiles(); renderAccent(); renderYarn(); renderAnims();
+renderTabs(); renderTiles(); renderAccent(); renderPlatings(); renderYarn(); renderAnims();
 playClip('Idle');
 
 // start from the pilot preset

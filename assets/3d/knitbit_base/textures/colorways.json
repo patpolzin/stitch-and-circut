@@ -1,68 +1,84 @@
-[
- {
-  "id": "charcoal",
-  "label": "Charcoal (default)",
-  "hex": "#303136",
-  "file": "yarn_charcoal.jpg"
- },
- {
-  "id": "red",
-  "label": "Reference Red",
-  "hex": "#C0344B",
-  "file": "yarn_red.jpg"
- },
- {
-  "id": "scout",
-  "label": "Scout Teal",
-  "hex": "#1FA6A0",
-  "file": "yarn_scout.jpg"
- },
- {
-  "id": "tank",
-  "label": "Tank Burnt Orange",
-  "hex": "#C4622D",
-  "file": "yarn_tank.jpg"
- },
- {
-  "id": "arcade",
-  "label": "Arcade Hot Pink",
-  "hex": "#FF2D95",
-  "file": "yarn_arcade.jpg"
- },
- {
-  "id": "maker",
-  "label": "Maker Gold",
-  "hex": "#E7B416",
-  "file": "yarn_maker.jpg"
- },
- {
-  "id": "wizard",
-  "label": "Wizard Purple",
-  "hex": "#7A3FC4",
-  "file": "yarn_wizard.jpg"
- },
- {
-  "id": "music",
-  "label": "Music Electric Blue",
-  "hex": "#2D7DFF",
-  "file": "yarn_music.jpg"
- },
- {
-  "id": "ghost",
-  "label": "Ghost Mint",
-  "hex": "#7FE0D4",
-  "file": "yarn_ghost.jpg"
- },
- {
-  "id": "pixel",
-  "label": "Pixel Neon Green",
-  "hex": "#38E655",
-  "file": "yarn_pixel.jpg"
- },
- {
-  "id": "garden",
-  "label": "Garden Leaf",
-  "hex": "#4FA82E",
-  "file": "yarn_garden.jpg"
- }
-]
+{
+ "colorways": [
+  {
+   "id": "charcoal",
+   "label": "Charcoal (default)",
+   "hex": "#303136",
+   "file": "yarn_charcoal.jpg"
+  },
+  {
+   "id": "red",
+   "label": "Reference Red",
+   "hex": "#C0344B",
+   "file": "yarn_red.jpg"
+  },
+  {
+   "id": "scout",
+   "label": "Scout Teal",
+   "hex": "#1FA6A0",
+   "file": "yarn_scout.jpg"
+  },
+  {
+   "id": "tank",
+   "label": "Tank Burnt Orange",
+   "hex": "#C4622D",
+   "file": "yarn_tank.jpg"
+  },
+  {
+   "id": "arcade",
+   "label": "Arcade Hot Pink",
+   "hex": "#FF2D95",
+   "file": "yarn_arcade.jpg"
+  },
+  {
+   "id": "maker",
+   "label": "Maker Gold",
+   "hex": "#E7B416",
+   "file": "yarn_maker.jpg"
+  },
+  {
+   "id": "wizard",
+   "label": "Wizard Purple",
+   "hex": "#7A3FC4",
+   "file": "yarn_wizard.jpg"
+  },
+  {
+   "id": "music",
+   "label": "Music Electric Blue",
+   "hex": "#2D7DFF",
+   "file": "yarn_music.jpg"
+  },
+  {
+   "id": "ghost",
+   "label": "Ghost Mint",
+   "hex": "#7FE0D4",
+   "file": "yarn_ghost.jpg"
+  },
+  {
+   "id": "pixel",
+   "label": "Pixel Neon Green",
+   "hex": "#38E655",
+   "file": "yarn_pixel.jpg"
+  },
+  {
+   "id": "garden",
+   "label": "Garden Leaf",
+   "hex": "#4FA82E",
+   "file": "yarn_garden.jpg"
+  }
+ ],
+ "platings": [
+  {
+   "id": "capsule",
+   "label": "Capsule (default)",
+   "hex": "#D9D5CC",
+   "prefix": "yarn_"
+  },
+  {
+   "id": "porcelain",
+   "label": "Porcelain",
+   "hex": "#F2F1F4",
+   "prefix": "porcelain_"
+  }
+ ]
+}
