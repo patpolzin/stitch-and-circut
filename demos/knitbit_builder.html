@@ -4,49 +4,88 @@
 <meta charset="utf-8">
 <title>KnitBit Builder — character customization</title>
 <style>
-  :root { --bg:#191b1f; --panel:#22252b; --ink:#e8eaee; --muted:#9aa1ab; --line:#33373f; --accent:#38e655; }
+  :root { --bg:#191b1f; --panel:#22252b; --ink:#e8eaee; --muted:#9aa1ab; --line:#33373f;
+          --accent:#38e655; --err:#ff5d5d; }
   * { box-sizing:border-box; margin:0; }
   body { display:flex; height:100vh; background:var(--bg); color:var(--ink);
          font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif; overflow:hidden; }
   #stage { flex:1; position:relative; min-width:0; }
   #stage canvas { display:block; }
   #hud { position:absolute; left:14px; top:12px; color:var(--muted); font-size:12px; }
-  #panel { width:320px; background:var(--panel); border-left:1px solid var(--line);
-           padding:18px 16px; overflow-y:auto; }
-  h1 { font-size:18px; margin-bottom:2px; }
-  .sub { color:var(--muted); font-size:12px; margin-bottom:14px; }
-  .slot { margin-bottom:12px; }
-  .slot label { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em;
-                color:var(--muted); margin-bottom:4px; }
-  .slot select { width:100%; padding:7px 8px; background:#1a1c21; color:var(--ink);
-                 border:1px solid var(--line); border-radius:8px; font-size:13px; }
-  #profile { margin-top:18px; padding:12px; border:1px solid var(--line); border-radius:12px;
-             display:flex; gap:12px; align-items:center; }
-  #avatar { width:72px; height:72px; border-radius:50%; background:#111; object-fit:cover;
+  #errbar { position:absolute; left:0; right:0; top:0; background:var(--err); color:#2a0606;
+            font-weight:600; font-size:13px; padding:8px 14px; display:none; z-index:5; }
+  #panel { width:380px; background:var(--panel); border-left:1px solid var(--line);
+           display:flex; flex-direction:column; }
+  #panelScroll { padding:16px 16px 20px; overflow-y:auto; flex:1; }
+  h1 { font-size:18px; }
+  .sub { color:var(--muted); font-size:12px; margin:2px 0 12px; }
+
+  #profile { padding:10px 12px; border:1px solid var(--line); border-radius:12px;
+             display:flex; gap:12px; align-items:center; margin-bottom:14px; }
+  #avatar { width:60px; height:60px; border-radius:50%; background:#111; object-fit:cover;
             border:2px solid var(--line); }
-  #profile .who { flex:1; }
+  #profile .who { flex:1; min-width:0; }
   #profile .who b { display:block; font-size:13px; }
   #profile .who span { font-size:11px; color:var(--muted); }
-  button { width:100%; margin-top:14px; padding:10px; border:0; border-radius:10px;
-           background:var(--accent); color:#0b1409; font-weight:700; font-size:14px; cursor:pointer; }
-  button:hover { filter:brightness(1.08); }
-  #status { margin-top:10px; font-size:11px; color:var(--muted); min-height:15px; }
+
+  #tabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  #tabs button { padding:6px 10px; font-size:12px; border:1px solid var(--line);
+                 background:#1a1c21; color:var(--muted); border-radius:999px; cursor:pointer; }
+  #tabs button.active { background:var(--accent); border-color:var(--accent);
+                        color:#0b1409; font-weight:700; }
+
+  #tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+  .tile { position:relative; border:2px solid var(--line); border-radius:12px; overflow:hidden;
+          cursor:pointer; background:#1a1c21; padding:0; }
+  .tile img { display:block; width:100%; aspect-ratio:1; object-fit:cover; }
+  .tile figcaption { font-size:10px; color:var(--muted); text-align:center; padding:3px 2px 5px; }
+  .tile.selected { border-color:var(--accent); }
+  .tile.selected figcaption { color:var(--accent); }
+
+  .sect { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+          margin:4px 0 6px; }
+  .swatches { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .sw { width:26px; height:26px; border-radius:50%; border:2px solid var(--line); cursor:pointer; }
+  .sw.selected { border-color:#fff; box-shadow:0 0 0 2px var(--accent); }
+
+  #anims { display:flex; gap:6px; margin-bottom:12px; }
+  #anims button { flex:1; padding:7px 0; font-size:12px; border:1px solid var(--line);
+                  background:#1a1c21; color:var(--ink); border-radius:8px; cursor:pointer; }
+  #anims button.active { border-color:var(--accent); color:var(--accent); font-weight:700; }
+
+  #pfpBtn { width:100%; padding:10px; border:0; border-radius:10px; background:var(--accent);
+            color:#0b1409; font-weight:700; font-size:14px; cursor:pointer; }
+  #pfpBtn:hover { filter:brightness(1.08); }
   a.dl { display:block; margin-top:6px; font-size:11px; color:var(--accent); }
-  a.dl[hidden] { display:none; }  /* display:block would defeat the hidden attribute */
+  a.dl[hidden] { display:none; }
+  #status { padding:8px 16px; font-size:11px; color:var(--muted); border-top:1px solid var(--line);
+            min-height:31px; }
 </style>
 </head>
 <body>
-<div id="stage"><div id="hud">drag to orbit · scroll to zoom</div></div>
+<div id="stage">
+  <div id="errbar"></div>
+  <div id="hud">drag to orbit · scroll to zoom</div>
+</div>
 <div id="panel">
-  <h1>KnitBit Builder</h1>
-  <div class="sub">Customize your Bit — live 3D preview with idle motion.</div>
-  <div id="slots"></div>
-  <div id="profile">
-    <img id="avatar" alt="profile picture">
-    <div class="who"><b>your_profile</b><span id="avatarState">no picture yet</span></div>
+  <div id="panelScroll">
+    <h1>KnitBit Builder</h1>
+    <div class="sub">Customize your Bit — live 3D preview with idle motion.</div>
+    <div id="profile">
+      <img id="avatar" alt="profile picture">
+      <div class="who"><b>your_profile</b><span id="avatarState">no picture yet</span></div>
+    </div>
+    <div id="tabs"></div>
+    <div id="tiles"></div>
+    <div class="sect" id="yarnSect" hidden>Yarn color</div>
+    <div class="swatches" id="yarnSw" hidden></div>
+    <div class="sect">Accent color <span id="accentSlot" style="text-transform:none"></span></div>
+    <div class="swatches" id="accentSw"></div>
+    <div class="sect">Animation</div>
+    <div id="anims"></div>
+    <button id="pfpBtn">📸 Save look &amp; take profile picture</button>
+    <a class="dl" id="pfpDl" hidden download="knitbit_pfp.png">download profile picture</a>
   </div>
-  <button id="pfpBtn">📸 Save look &amp; take profile picture</button>
-  <a class="dl" id="pfpDl" hidden download="knitbit_pfp.png">download profile picture</a>
   <div id="status">loading…</div>
 </div>
 
@@ -61,8 +100,21 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 const WEB = '../assets/3d/knitbit_base/web/';
 const stage = document.getElementById('stage');
 const statusEl = document.getElementById('status');
-// hooks for automated verification (Playwright)
-window.__KB = { ready:false, equips:0, pfp:false };
+const errbar = document.getElementById('errbar');
+const say = m => statusEl.textContent = m;
+const fail = m => { errbar.style.display = 'block';
+                    errbar.textContent = '⚠ ' + m; console.error('[builder]', m); };
+
+// test/debug hooks (Playwright asserts against these)
+window.__KB = { ready:false, equips:0, pfp:false, failures:[], debug:null };
+const recordFail = m => { window.__KB.failures.push(m); fail(m); };
+
+if (location.protocol === 'file:') {
+  fail('This editor must be served over http:// (module scripts + asset fetches are blocked ' +
+       'on file://). From the repo root run:  python3 -m http.server   then open ' +
+       'http://localhost:8000/demos/knitbit_builder.html');
+  throw new Error('file:// not supported');
+}
 
 const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -74,8 +126,8 @@ scene.background = new THREE.Color(0x191b1f);
 const camera = new THREE.PerspectiveCamera(33, 1, 0.05, 60);
 const controls = new OrbitControls(camera, renderer.domElement);
 
-// NOTE: scene.add() returns the SCENE, not the child — chaining .position.set
-// off it once silently translated the whole world. Keep lights in variables.
+// keep lights in variables — scene.add() returns the SCENE; chaining
+// .position.set off it once translated the whole world (found via E2E)
 scene.add(new THREE.HemisphereLight(0xe6ecf4, 0x3a3f48, 1.6));
 const key = new THREE.DirectionalLight(0xffffff, 3.0);
 key.position.set(2.4, 3.5, 2.8);
@@ -98,14 +150,39 @@ addEventListener('resize', resize);
 const loader = new GLTFLoader();
 const loadGLB = url => new Promise((ok, err) => loader.load(url, ok, undefined, err));
 
-const manifest = await (await fetch(WEB + 'manifest.web.json')).json();
+let manifest;
+try {
+  manifest = await (await fetch(WEB + 'manifest.web.json')).json();
+} catch (e) {
+  fail('Could not load ' + WEB + 'manifest.web.json — is the server running at the repo root?');
+  throw e;
+}
 const H = manifest.base.char_height;
 camera.position.set(1.7, H * 0.26, 4.1);
 controls.target.set(0, 0, 0);
 resize();
 
+// soft fake ground shadow (radial gradient disc) so the character reads grounded
+{
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(128, 128, 10, 128, 128, 128);
+  grad.addColorStop(0, 'rgba(0,0,0,0.45)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 256, 256);
+  const tex = new THREE.CanvasTexture(c);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.15, 48),
+                              new THREE.MeshBasicMaterial({ map:tex, transparent:true,
+                                                            depthWrite:false }));
+  disc.rotation.x = -Math.PI / 2;
+  disc.position.y = -H / 2 + 0.005;
+  scene.add(disc);
+}
+
 // ---------- base character ----------
-const baseGltf = await loadGLB(WEB + manifest.base.file);
+const baseGltf = await loadGLB(WEB + manifest.base.file).catch(e => {
+  fail('Failed to load base.glb: ' + e.message); throw e;
+});
 scene.add(baseGltf.scene);
 baseGltf.scene.updateMatrixWorld(true);
 
@@ -114,23 +191,45 @@ baseGltf.scene.traverse(o => {
   if (o.isBone) bones[o.name] = o;
   if (manifest.base.parts.includes(o.name)) parts[o.name] = o;
 });
-// rest-pose world inverses, captured BEFORE the mixer ever runs — attach math
-// must be animation-time independent or pieces get a mid-sway error baked in
 for (const [n, b] of Object.entries(bones))
   boneRestInv[n] = b.matrixWorld.clone().invert();
 
+// GLTFLoader SANITIZES node names (PropertyBinding.sanitizeNodeName strips
+// '.' among others), so the manifest's "Foot.L" is "FootL" in the loaded
+// skeleton. This exact mismatch silently dropped boots+hands in v1 (the base
+// parts were hidden, the pieces never attached — footless character).
+const findBone = name => {
+  if (!name) return null;
+  return bones[name] || bones[THREE.PropertyBinding.sanitizeNodeName(name)] || null;
+};
+
+// base (yarn) materials — for colorway swaps
+const baseMats = new Set();
+Object.values(parts).forEach(p => p.traverse(o => { if (o.isMesh) baseMats.add(o.material); }));
+const baseOrigMaps = new Map([...baseMats].map(m => [m, m.map]));
+
 const mixer = new THREE.AnimationMixer(baseGltf.scene);
-const idleClip = baseGltf.animations.find(a => a.name.includes(manifest.base.animation)) || baseGltf.animations[0];
-if (idleClip) mixer.clipAction(idleClip).play();
+const clips = baseGltf.animations || [];
+let activeAction = null;
+function playClip(name) {
+  const clip = clips.find(c => c.name.includes(name)) || clips[0];
+  if (!clip) return;
+  const action = mixer.clipAction(clip);
+  if (activeAction && activeAction !== action) activeAction.fadeOut(0.25);
+  action.reset().fadeIn(0.25).setLoop(THREE.LoopRepeat).play();
+  activeAction = action;
+  document.querySelectorAll('#anims button').forEach(b =>
+    b.classList.toggle('active', b.dataset.clip === name));
+}
 
 // ---------- trait equipping ----------
-const gltfCache = {};                       // traitId -> Promise<gltf>
-const equipped = {};                        // slot -> {meshes:[], hides:[], pend:null}
+const gltfCache = {};
+const equipped = {};     // slot -> {meshes:[], hides:[], pend:null, mats:[]}
 const traitById = Object.fromEntries(manifest.traits.map(t => [t.id, t]));
+const selection = {};    // slot -> traitId|null  (drives tiles + accent UI)
+const accentBySlot = {}; // slot -> hex|null
 
 function attachRestWorld(object3d, bone, restWorld) {
-  // parent under the bone with a local matrix that reproduces `restWorld`
-  // at the bone's REST pose (bone.matrixWorld may be mid-animation right now)
   const local = boneRestInv[bone.name].clone().multiply(restWorld);
   bone.add(object3d);
   local.decompose(object3d.position, object3d.quaternion, object3d.scale);
@@ -143,28 +242,37 @@ async function equip(slot, traitId) {
     prev.hides.forEach(p => { if (parts[p]) parts[p].visible = true; });
     delete equipped[slot];
   }
-  if (!traitId) { window.__KB.equips++; return; }
+  selection[slot] = traitId || null;
+  if (!traitId) { window.__KB.equips++; refreshTiles(); return; }
   const t = traitById[traitId];
-  gltfCache[traitId] ??= loadGLB(WEB + t.file);
-  const gltf = await gltfCache[traitId];
-  const entry = { meshes: [], hides: t.hides || [], pend: null };
+  let gltf;
+  try {
+    gltfCache[traitId] ??= loadGLB(WEB + t.file);
+    gltf = await gltfCache[traitId];
+  } catch (e) {
+    delete gltfCache[traitId];
+    recordFail(`Failed to load piece for "${t.label}" (${t.file}): ${e.message}`);
+    window.__KB.equips++; refreshTiles(); return;
+  }
+  const entry = { meshes: [], hides: t.hides || [], pend: null, mats: [] };
   const dyn = manifest.slots[slot]?.dynamic;
 
   for (const att of t.attachments) {
-    const src = gltf.scene.getObjectByName(att.node);
-    const bone = bones[att.bone];
-    if (!src || !bone) continue;
+    const src = gltf.scene.getObjectByName(att.node) ||
+                gltf.scene.getObjectByName(THREE.PropertyBinding.sanitizeNodeName(att.node));
+    const bone = findBone(att.bone);
+    if (!src) { recordFail(`Piece node "${att.node}" missing in ${t.file}`); continue; }
+    if (!bone) { recordFail(`Bone "${att.bone}" not found for ${t.label}`); continue; }
     const mesh = src.clone(true);
-    // measure the piece's authored (baked-world) rest transform
+    // give each equipped piece its own material so accent tints don't leak
+    mesh.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); entry.mats.push(o.material); } });
     scene.add(mesh);
     mesh.updateMatrixWorld(true);
     const restWorld = mesh.matrixWorld.clone();
     scene.remove(mesh);
 
     if (dyn && src.userData.knitbit_pivot_pos) {
-      // free-hanging charm: pivot group at the hook, mesh below it, so the
-      // runtime pendulum can swing the piece about the hook
-      const p = src.userData.knitbit_pivot_pos;           // Blender Z-up coords
+      const p = src.userData.knitbit_pivot_pos;           // Blender Z-up
       const hook = new THREE.Vector3(p[0], p[2], -p[1]);  // -> glTF Y-up
       const pivot = new THREE.Group();
       const pivotWorld = new THREE.Matrix4().setPosition(hook);
@@ -181,47 +289,155 @@ async function equip(slot, traitId) {
       entry.meshes.push(mesh);
     }
   }
-  entry.hides.forEach(p => { if (parts[p]) parts[p].visible = false; });
-  equipped[slot] = entry;
+  // hide base parts ONLY if the replacement actually attached — a failed boot
+  // load must never leave the character footless (v1 did exactly that)
+  if (entry.meshes.length > 0) {
+    entry.hides.forEach(p => { if (parts[p]) parts[p].visible = false; });
+    equipped[slot] = entry;
+    if (accentBySlot[slot]) applyAccent(slot, accentBySlot[slot]);
+  } else if ((t.attachments || []).length > 0) {
+    recordFail(`"${t.label}" attached 0 of ${t.attachments.length} pieces — base left visible`);
+  }
   window.__KB.equips++;
+  refreshTiles();
+}
+
+// ---------- colors ----------
+const texLoader = new THREE.TextureLoader();
+const colorwayTex = {};
+function applyYarn(cw) {
+  document.querySelectorAll('#yarnSw .sw').forEach(el =>
+    el.classList.toggle('selected', el.dataset.id === (cw ? cw.id : 'default')));
+  if (!cw || !cw.file) {   // default: restore original baked texture
+    for (const [m, map] of baseOrigMaps) { m.map = map; m.needsUpdate = true; }
+    return;
+  }
+  colorwayTex[cw.id] ??= new Promise(res => texLoader.load(WEB + cw.file, tex => {
+    tex.flipY = false;                       // glTF UV convention
+    tex.colorSpace = THREE.SRGBColorSpace;
+    res(tex);
+  }, undefined, () => { recordFail('Failed to load colorway ' + cw.file); res(null); }));
+  colorwayTex[cw.id].then(tex => {
+    if (!tex) return;
+    for (const m of baseMats) { m.map = tex; m.needsUpdate = true; }
+  });
+}
+
+function applyAccent(slot, hex) {
+  accentBySlot[slot] = hex;
+  const entry = equipped[slot];
+  if (entry) entry.mats.forEach(m => m.color.set(hex || '#ffffff'));
+  document.querySelectorAll('#accentSw .sw').forEach(el =>
+    el.classList.toggle('selected', el.dataset.hex === (hex || '')));
 }
 
 // ---------- UI ----------
-const slotsEl = document.getElementById('slots');
+const tabsEl = document.getElementById('tabs');
+const tilesEl = document.getElementById('tiles');
 const slotOrder = Object.keys(manifest.slots);
-for (const slot of slotOrder) {
-  const opts = manifest.traits.filter(t => t.slot === slot);
-  const wrap = document.createElement('div');
-  wrap.className = 'slot';
-  const themeName = id => manifest.themes[id]?.label?.split(' /')[0] ?? id;
-  wrap.innerHTML = `<label>${manifest.slots[slot].label}</label>`;
-  const sel = document.createElement('select');
-  sel.id = 'sel_' + slot;
-  sel.innerHTML = `<option value="">— none —</option>` +
-    opts.map(t => `<option value="${t.id}">${t.label} · ${themeName(t.theme)}</option>`).join('');
-  sel.onchange = async () => { statusEl.textContent = 'updating ' + slot + '…';
-                               await equip(slot, sel.value);
-                               statusEl.textContent = 'ready'; };
-  wrap.appendChild(sel);
-  slotsEl.appendChild(wrap);
+let activeSlot = slotOrder[0];
+
+function renderTabs() {
+  tabsEl.innerHTML = '';
+  for (const slot of slotOrder) {
+    const b = document.createElement('button');
+    b.textContent = manifest.slots[slot].label;
+    b.classList.toggle('active', slot === activeSlot);
+    b.onclick = () => { activeSlot = slot; renderTabs(); renderTiles(); renderAccent(); };
+    tabsEl.appendChild(b);
+  }
 }
 
+function tile(imgSrc, label, selected, onclick) {
+  const fig = document.createElement('button');
+  fig.className = 'tile' + (selected ? ' selected' : '');
+  fig.innerHTML = `<img src="${imgSrc}" alt=""><figcaption>${label}</figcaption>`;
+  fig.onclick = onclick;
+  return fig;
+}
+
+function renderTiles() {
+  tilesEl.innerHTML = '';
+  const cur = selection[activeSlot] || null;
+  tilesEl.appendChild(tile(WEB + 'tiles/none.jpg', 'None', cur === null, async () => {
+    say('removing…'); await equip(activeSlot, null); say('ready');
+  }));
+  for (const t of manifest.traits.filter(t => t.slot === activeSlot)) {
+    tilesEl.appendChild(tile(WEB + `tiles/${t.id}.jpg`, t.label, cur === t.id, async () => {
+      say('equipping ' + t.label + '…'); await equip(activeSlot, t.id); say('ready');
+    }));
+  }
+}
+const refreshTiles = () => { renderTiles(); };
+
+function renderAccent() {
+  document.getElementById('accentSlot').textContent =
+    '· ' + manifest.slots[activeSlot].label;
+  const row = document.getElementById('accentSw');
+  row.innerHTML = '';
+  const none = document.createElement('div');
+  none.className = 'sw'; none.dataset.hex = '';
+  none.style.background =
+    'linear-gradient(135deg,#fff 45%,#f33 45%,#f33 55%,#fff 55%)';
+  none.title = 'no tint';
+  none.onclick = () => applyAccent(activeSlot, null);
+  row.appendChild(none);
+  for (const [id, th] of Object.entries(manifest.themes || {})) {
+    const el = document.createElement('div');
+    el.className = 'sw'; el.dataset.hex = th.accent;
+    el.style.background = th.accent;
+    el.title = th.label;
+    el.onclick = () => applyAccent(activeSlot, th.accent);
+    row.appendChild(el);
+  }
+  applyAccent(activeSlot, accentBySlot[activeSlot] ?? null);
+}
+
+function renderYarn() {
+  const cws = manifest.colorways || [];
+  if (!cws.length) return;
+  document.getElementById('yarnSect').hidden = false;
+  const row = document.getElementById('yarnSw');
+  row.hidden = false;
+  row.innerHTML = '';
+  for (const cw of cws) {
+    const el = document.createElement('div');
+    el.className = 'sw'; el.dataset.id = cw.id;
+    el.style.background = cw.hex;
+    el.title = cw.label;
+    el.onclick = () => applyYarn(cw.file ? cw : null);
+    row.appendChild(el);
+  }
+  applyYarn(null);
+}
+
+function renderAnims() {
+  const row = document.getElementById('anims');
+  row.innerHTML = '';
+  const names = clips.length ? clips.map(c => c.name) : [];
+  const wanted = ['Idle', 'Wave', 'Bounce'].filter(w => names.some(n => n.includes(w)));
+  for (const w of (wanted.length ? wanted : names.slice(0, 3))) {
+    const b = document.createElement('button');
+    b.textContent = w; b.dataset.clip = w;
+    b.onclick = () => playClip(w);
+    row.appendChild(b);
+  }
+}
+
+renderTabs(); renderTiles(); renderAccent(); renderYarn(); renderAnims();
+playClip('Idle');
+
 // start from the pilot preset
-const startLoadout = manifest.presets.pilot ?? {};
-for (const [slot, tid] of Object.entries(startLoadout)) {
-  const sel = document.getElementById('sel_' + slot);
-  if (sel) sel.value = tid;
+for (const [slot, tid] of Object.entries(manifest.presets.pilot ?? {})) {
   await equip(slot, tid);
 }
 
-// ---------- profile picture ----------
-// Captured with the MAIN renderer (temporarily square) — a second WebGL
-// renderer has its own GL context and can't see this scene's uploaded GPU
-// resources, which produced an empty avatar in the first cut of this page.
+// ---------- profile picture (main renderer: a second WebGL context can't see
+// this scene's GPU resources and captures an empty image) ----------
 const pfpSize = 512;
 const pfpCam = new THREE.OrthographicCamera(-H*0.36, H*0.36, H*0.36, -H*0.36, 0.05, 60);
 document.getElementById('pfpBtn').onclick = () => {
-  const aim = new THREE.Vector3(0, H * 0.30, 0);   // head centre (matches render_pfp)
+  const aim = new THREE.Vector3(0, H * 0.30, 0);
   const a = THREE.MathUtils.degToRad(22);
   pfpCam.position.set(4 * Math.sin(a), aim.y, 4 * Math.cos(a));
   pfpCam.lookAt(aim);
@@ -231,18 +447,18 @@ document.getElementById('pfpBtn').onclick = () => {
   renderer.render(scene, pfpCam);
   const url = renderer.domElement.toDataURL('image/png');
   renderer.setPixelRatio(prevPR);
-  resize();  // restore viewport size + camera aspect
+  resize();
   document.getElementById('avatar').src = url;
   document.getElementById('avatarState').textContent = 'profile picture applied ✓';
   const dl = document.getElementById('pfpDl');
   dl.href = url; dl.hidden = false;
-  statusEl.textContent = 'profile picture captured';
+  say('profile picture captured');
   window.__KB.pfp = true;
 };
 
 // ---------- animation loop ----------
 const clock = new THREE.Clock();
-const hips = bones['Hips'];
+const hips = findBone('Hips');
 const hipsRestY = hips ? hips.position.y : 0;
 let prevHipX = 0;
 
@@ -250,14 +466,10 @@ renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
   mixer.update(dt);
-  // gentle procedural body bob on top of the clip (the clip animates chest +
-  // head; Hips is free, so this doesn't fight the mixer) — keeps the whole
-  // character and its hanging charm subtly alive
-  if (hips) {
+  if (hips && activeAction?.getClip().name.includes('Idle')) {
     hips.position.y = hipsRestY + Math.sin(t * 2.4) * 0.008;
-    hips.rotation.z = Math.sin(t * 1.1) * 0.012;
+    hips.rotation.z += Math.sin(t * 1.1) * 0.012;
   }
-  // charm pendulum: spring toward vertical, excited by hip sway
   for (const e of Object.values(equipped)) {
     if (!e.pend) continue;
     const p = e.pend;
@@ -274,7 +486,22 @@ renderer.setAnimationLoop(() => {
   renderer.render(scene, camera);
 });
 
-statusEl.textContent = 'ready';
+// debug hook: world-space state of every equipped piece + base part visibility
+window.__KB.debug = () => {
+  const out = { pieces: [], parts: {} };
+  const v = new THREE.Vector3();
+  for (const [slot, e] of Object.entries(equipped)) {
+    for (const m of e.meshes) {
+      m.getWorldPosition(v);
+      out.pieces.push({ slot, name: m.name, visible: m.visible,
+                        pos: [+v.x.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)] });
+    }
+  }
+  for (const [n, p] of Object.entries(parts)) out.parts[n] = p.visible;
+  return out;
+};
+
+say('ready');
 window.__KB.ready = true;
 </script>
 </body>

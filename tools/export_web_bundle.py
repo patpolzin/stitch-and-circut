@@ -214,12 +214,26 @@ def write_manifest(parts, piece_meta):
             "hides": meta["hides"],
         })
     themes = {k: v for k, v in M["themes"].items() if not k.startswith("_")}
+    # yarn colorways: produced by tools/make_yarn_colorways.py, which drops the
+    # runtime textures next to the bundle (web/yarn_<id>.jpg) and the entry
+    # list in textures/colorways.json. Optional so the export still works on a
+    # checkout that never ran the colorway tool.
+    colorways = []
+    cw_path = os.path.join(ASSET, "textures", "colorways.json")
+    if os.path.exists(cw_path):
+        with open(cw_path) as f:
+            colorways = json.load(f)
+        missing = [c["file"] for c in colorways
+                   if not os.path.exists(os.path.join(WEB, c["file"]))]
+        if missing:
+            print(f"[web] WARNING: colorway textures missing: {missing}")
     out = {
         "base": {"file": "base.glb", "animation": "Idle",
                  "parts": parts, "char_height": M["base"]["char_height"]},
         "slots": slots,
         "traits": traits,
         "themes": themes,
+        "colorways": colorways,
         "presets": {name: p["loadout"] for name, p in M["presets"].items()},
     }
     path = os.path.join(WEB, "manifest.web.json")
