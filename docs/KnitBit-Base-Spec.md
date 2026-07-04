@@ -505,6 +505,23 @@ manifest data (no rig regeneration):
   visibly above the v2 boot cuffs until this fix. The v2 foot cut sits at the
   leg's narrow waist (z −0.50): cut lower and the base's sculpted boot-top flare
   survives and pokes past the replacement cuff.
+- **Cuff collar conform** (`build_character.conform_collar`) — after a boot is
+  fitted, the leg yarn between just above the cuff rim and the hide cut is
+  reshaped radially to hug the boot's inner shaft wall (estimated per angular
+  bin from the boot's own vertices; tube axis = cuff-ring bbox center), so the
+  yarn **touches the cuff opening on all sides**. The raw v2 leg is narrower
+  than the tube at rim height (visible crescent gap looking into the boot) but
+  wider a few cm deeper (it poked through the shaft wall) — no rigid
+  offset/scale fixes both. A radius window + move cap protect the crotch drape
+  and knee-plate bottoms from being dragged onto the tube, and the blend hits
+  100% exactly at the rim so the yarn meets the opening flush. Boot fits also
+  support `offset_frac_right` (same left-side convention, x negated on apply)
+  because the v2 mesh's legs are not perfectly symmetric. Collar is conformed
+  against `boot_classic`; a second boot option needs its own collar pass.
+  `export_web_bundle` runs the same conform on the base before splitting parts,
+  and its split bisects every window boundary and keeps the rim loop in BOTH
+  core and limb parts (faces straddling the boundary previously vanished from
+  both, tearing a ring around the barefoot ankle seam).
 - **`mount:limb_pair`** traits carry `attach_bone` (a bone name **without** the
   `.L`/`.R` suffix, e.g. `"Foot"`) and `hides` (a `mesh_regions` key). The loader
   expands one trait into two `FitInstruction`s (`attach_bone="Foot.L"`/`"Foot.R"`,
