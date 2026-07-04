@@ -37,7 +37,10 @@
       "comment": "Low-profile surface detail on socket_head_top_center only. Never dome/helmet geometry (the head IS the helmet, spec section 1)."
     },
     "chest_icon": { "label": "Chest Icon" },
-    "belt_charm": { "label": "Belt Charm" },
+    "belt_charm": {
+      "label": "Belt Charm",
+      "comment": "All belt charms mount on socket_belt_front but share a fit.offset_frac that hangs them on the front-RIGHT of the belt, partway toward the right hip (socket_belt_right sits at x=-0.234; character's right = -x). The offset moves -x (toward the right hip) and +y (back, following the belt's curve so the charm stays on the surface). Kept identical across all charms so the slot placement reads consistently."
+    },
     "accessory": {
       "label": "Accessory",
       "comment": "Each accessory carries its own socket (backpack -> back_center, headphones -> head_top_center, watering can -> right_hand_grip)."
@@ -160,7 +163,8 @@
       "file": "traits/pilot/belt_charm.glb",
       "mount": "socket",
       "socket": "socket_belt_front",
-      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+      "note": "offset_frac hangs the charm on the front-right of the belt toward the right hip (see the belt_charm slot comment).",
+      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [-0.06, 0.035, 0] }
     },
     {
       "id": "charm_coin",
@@ -171,7 +175,8 @@
       "file": "traits/pilot/charm_coin.glb",
       "mount": "socket",
       "socket": "socket_belt_front",
-      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+      "note": "offset_frac hangs the charm on the front-right of the belt toward the right hip (see the belt_charm slot comment).",
+      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [-0.06, 0.035, 0] }
     },
     {
       "id": "charm_flower",
@@ -182,7 +187,8 @@
       "file": "traits/pilot/charm_flower.glb",
       "mount": "socket",
       "socket": "socket_belt_front",
-      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [0, 0, 0] }
+      "note": "offset_frac hangs the charm on the front-right of the belt toward the right hip (see the belt_charm slot comment).",
+      "fit": { "scale": 0.09, "rotation_deg": [0, 0, 0], "offset_frac": [-0.06, 0.035, 0] }
     },
 
     {

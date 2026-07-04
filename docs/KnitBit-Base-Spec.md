@@ -101,7 +101,7 @@ them in Blender after rigging** (see §8).
 | `head_right_side` | Head | headphone right cup, ear modules |
 | `faceplate` | Head | expression sprites / display effects |
 | `chest_center` | Chest | chest icon, screen, badge |
-| `belt_front` | Hips | belt buckle, central charm |
+| `belt_front` | Hips | belt buckle; charms (charms are offset in the manifest to hang on the front-**right** of the belt toward the right hip — see §10) |
 | `belt_left` | Hips | pouches, small tools |
 | `belt_right` | Hips | pouches, small tools |
 | `back_center` | Chest | backpack, cape, cloak, tank pack |
