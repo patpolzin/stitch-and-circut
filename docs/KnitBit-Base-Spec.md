@@ -101,7 +101,7 @@ them in Blender after rigging** (see §8).
 | `head_right_side` | Head | headphone right cup, ear modules |
 | `faceplate` | Head | expression sprites / display effects |
 | `chest_center` | Chest | chest icon, screen, badge |
-| `belt_front` | Hips | belt buckle; charms (charms are offset in the manifest to **clasp over the top edge** of the belt on the front-**right**, toward the right hip — see §10) |
+| `belt_front` | Hips | belt buckle; charms (offset in the manifest to hang off the **right hip** with the hook clipped onto the belt band and the body dangling free of the thigh; charms are a **dynamic/swinging** attachment — see §10) |
 | `belt_left` | Hips | pouches, small tools |
 | `belt_right` | Hips | pouches, small tools |
 | `back_center` | Chest | backpack, cape, cloak, tank pack |
@@ -412,6 +412,36 @@ flower charm + backpack) assembles cleanly — proving the mix-and-match path.
 **Adding a trait** (once its `.glb` is in `traits/`): append one object to
 `manifest.traits` with its `slot`, `file`, `mount`/`socket`, and `fit` block; run
 `--check`; assemble a loadout that uses it. No code change — the fit is data.
+
+### Dynamic (free-hanging) attachments — belt charms swing
+
+Belt charms are not rigidly fixed: they **hang from their hook and swing** when
+the character moves. This is expressed as data + rig setup, with the actual
+motion driven at runtime:
+
+- **Placement** — the shared belt-charm `offset_frac` hangs the charm off the
+  character's **right hip** (~87% of the way toward `socket_belt_right`, away from
+  center-front), with the hanger ring **clipped onto the belt band** and the body
+  **dangling free of the thigh**. The depth is tuned to the minimum proudness that
+  clears the thigh's forward bulge (leg front ≈ −0.154 below the belt), found by
+  probing the base mesh — pull back any further and the charm intersects the leg;
+  push forward and it juts off the front.
+- **Swing rig** — the `belt_charm` slot carries a `dynamic` block (pivot
+  `hook_top`, attach bone `Hips`, pendulum stiffness/damping/max-angle). For any
+  dynamic trait, `build_character.py` moves the charm **node's origin to the hook**
+  (so it pivots there) and writes the params to the node's glTF **extras**
+  (`knitbit_dynamic`, `knitbit_pivot`, `knitbit_attach_bone`, `knitbit_swing`).
+  The runtime (the game's spring/verlet system, `game/lib/physics/verlet_rope.dart`)
+  reads these to swing the charm about the hook as the hips move. Static preview
+  renders show the rest pose; moving the origin does **not** move the mesh.
+- **Demo** — `tools/demo_charm_swing.py` bakes a representative damped-pendulum
+  swing about the hook and emits `knitbit_charm_swing_demo.glb` (animated) +
+  `knitbit_charm_swing_demo.png` (filmstrip) as visual proof the charm hangs and
+  swings correctly. This is a canned demo; the real swing is motion-reactive at
+  runtime.
+
+Adding another free-hanging trait later (a keychain, a dangling tool) is just a
+slot with a `dynamic` block — no code change.
 
 ### Not yet built (future builder work)
 - **Boots + hands as mesh-swaps** (§5): unlike socketed props, these replace base

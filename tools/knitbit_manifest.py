@@ -57,11 +57,11 @@ class FitInstruction:
 
     __slots__ = (
         "name", "trait_id", "file", "socket",
-        "scale_frac", "rotation_deg", "mirror_x", "offset_frac",
+        "scale_frac", "rotation_deg", "mirror_x", "offset_frac", "dynamic",
     )
 
     def __init__(self, name, trait_id, file, socket,
-                 scale_frac, rotation_deg, mirror_x, offset_frac):
+                 scale_frac, rotation_deg, mirror_x, offset_frac, dynamic=None):
         self.name = name
         self.trait_id = trait_id
         self.file = file
@@ -70,6 +70,10 @@ class FitInstruction:
         self.rotation_deg = tuple(rotation_deg)
         self.mirror_x = mirror_x
         self.offset_frac = tuple(offset_frac)
+        # dynamic (free-hanging/pendulum) spec inherited from the trait's slot,
+        # or None for a rigid attachment. build_character.py reads it to pivot
+        # the node at the hook and stamp physics params into glTF extras.
+        self.dynamic = dynamic
 
     def __repr__(self):
         return (f"FitInstruction({self.name!r} <- {os.path.basename(self.file)} "
@@ -77,7 +81,7 @@ class FitInstruction:
                 f"mirror_x={self.mirror_x} offset={self.offset_frac})")
 
 
-def _instructions_for_trait(trait):
+def _instructions_for_trait(trait, dynamic=None):
     fit = trait["fit"]
     file_abs = os.path.join(ASSET_DIR, trait["file"])
     scale = fit["scale"]
@@ -88,23 +92,26 @@ def _instructions_for_trait(trait):
     if mount == "antenna_pair":
         return [
             FitInstruction(trait["id"] + "_left", trait["id"], file_abs,
-                           ANTENNA_LEFT_SOCKET, scale, rot, False, off),
+                           ANTENNA_LEFT_SOCKET, scale, rot, False, off, dynamic),
             FitInstruction(trait["id"] + "_right", trait["id"], file_abs,
-                           ANTENNA_RIGHT_SOCKET, scale, rot, True, off),
+                           ANTENNA_RIGHT_SOCKET, scale, rot, True, off, dynamic),
         ]
     if mount == "socket":
         socket = trait.get("socket")
         if not socket:
             raise ValueError(f"trait '{trait['id']}' has mount 'socket' but no socket set")
         return [FitInstruction(trait["id"], trait["id"], file_abs,
-                               socket, scale, rot, False, off)]
+                               socket, scale, rot, False, off, dynamic)]
     raise ValueError(f"trait '{trait['id']}' has unknown mount '{mount}'")
 
 
 def resolve_loadout(manifest, loadout):
     """loadout: {slot: trait_id or None}. Returns a flat list[FitInstruction].
-    Raises if a trait id is unknown or assigned to the wrong slot."""
+    Raises if a trait id is unknown or assigned to the wrong slot. A slot-level
+    "dynamic" spec (free-hanging/pendulum) is attached to each of that slot's
+    instructions."""
     by_id = traits_by_id(manifest)
+    slots = manifest.get("slots", {})
     instrs = []
     for slot, trait_id in loadout.items():
         if trait_id is None:
@@ -116,7 +123,8 @@ def resolve_loadout(manifest, loadout):
         if trait["slot"] != slot:
             raise ValueError(f"trait '{trait_id}' is slot '{trait['slot']}', "
                              f"not the requested '{slot}'")
-        instrs.extend(_instructions_for_trait(trait))
+        dynamic = slots.get(slot, {}).get("dynamic")
+        instrs.extend(_instructions_for_trait(trait, dynamic))
     return instrs
 
 

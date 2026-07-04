@@ -119,11 +119,50 @@ def fit_instruction(instr):
     prop.rotation_quaternion = hint_q @ base_q
     prop.scale = (scale, abs(scale), abs(scale))
     bpy.context.view_layer.update()
+
+    if instr.dynamic:
+        _make_dynamic(prop, instr.dynamic)
+
     sock_pos = tuple(round(v, 3) for v in socket.matrix_world.translation)
     prop_pos = tuple(round(v, 3) for v in prop.matrix_world.translation)
     print(f"[build] {instr.name}: dim={dim:.3f} -> scale={scale:.3f} "
-          f"@ '{instr.socket}' socket_world={sock_pos} prop_world={prop_pos}")
+          f"@ '{instr.socket}' socket_world={sock_pos} prop_world={prop_pos}"
+          f"{'  [dynamic]' if instr.dynamic else ''}")
     return prop
+
+
+def _make_dynamic(prop, dyn):
+    """Rig a free-hanging charm for runtime pendulum swing: move the object
+    origin to the hook (top-center of the bbox) so the node pivots there, and
+    stamp the physics params onto the node's glTF extras (knitbit_* custom
+    props, exported because export_extras=True). The runtime (game spring/verlet
+    system) reads these to swing the charm about the hook when the body moves.
+    The mesh does not move — only the pivot/origin and metadata change — so the
+    rest-pose render is identical."""
+    import json
+    # world-space top-center of the charm = the hook
+    wc = [prop.matrix_world @ mathutils.Vector(c) for c in prop.bound_box]
+    top_z = max(c.z for c in wc)
+    cx = sum(c.x for c in wc) / 8.0
+    cy = sum(c.y for c in wc) / 8.0
+    hook = mathutils.Vector((cx, cy, top_z))
+    # move origin to the hook without moving the mesh
+    prev = tuple(bpy.context.scene.cursor.location)
+    bpy.context.scene.cursor.location = hook
+    bpy.ops.object.select_all(action="DESELECT")
+    prop.select_set(True)
+    bpy.context.view_layer.objects.active = prop
+    bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
+    bpy.context.scene.cursor.location = prev
+    # stamp physics metadata -> node.extras
+    prop["knitbit_dynamic"] = True
+    prop["knitbit_pivot"] = dyn.get("pivot", "hook_top")
+    prop["knitbit_attach_bone"] = dyn.get("attach_bone", "Hips")
+    prop["knitbit_swing"] = json.dumps({
+        k: dyn[k] for k in ("type", "stiffness", "damping", "max_angle_deg", "axes")
+        if k in dyn
+    })
+    bpy.context.view_layer.update()
 
 
 def setup_render(engine="BLENDER_EEVEE_NEXT"):
