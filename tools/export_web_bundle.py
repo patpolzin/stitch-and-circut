@@ -299,7 +299,7 @@ def write_manifest(parts, piece_meta, face_entries=None):
 # runtime that loads it) can play the animated expression sprites on a live
 # texture. Rect probed from the v2 head: the CRT glass bulges forward across
 # x +/-0.270, z 0.235..0.660 - calibrated by flooding the overlay canvas magenta in the editor and reading the residuals against the bezel (the glass runs much higher than the eye glyphs suggest). The CRT glass curves back toward the bezel and the raycast follows it.
-FACE_RECT = {"x0": -0.270, "x1": 0.270, "z0": 0.235, "z1": 0.660}
+FACE_RECT = {"x0": -0.310, "x1": 0.310, "z0": 0.210, "z1": 0.600}
 FACE_GRID = (44, 34)
 FACE_OFFSET = 0.006   # how far the overlay floats in front of the glass
 FACE_SRC = os.path.join(os.path.dirname(ASSET), "..", "2d", "knitbit_face", "normalized")
