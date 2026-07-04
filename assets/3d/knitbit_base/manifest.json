@@ -294,8 +294,8 @@
       "mount": "limb_pair",
       "attach_bone": "Hand",
       "hides": "hand",
-      "note": "rotation_deg computed with mathutils Vector.rotation_difference(), aligning the fist's local knuckle direction (-Y) to the Hand.L bone's actual head->tail direction (mostly -Z/down with some +X/outward, matching the A-pose forearm) rather than guessed by eye. offset_frac nudges the wrist cap snugly against the hidden forearm stump.",
-      "fit": { "scale": 0.20, "rotation_deg": [73.86, -25.68, 33.74], "offset_frac": [0.02, 0, -0.035] }
+      "note": "rotation_deg computed with mathutils Vector.rotation_difference(), aligning the fist's local knuckle direction (-Y) to the Hand.L bone's actual head->tail direction (mostly -Z/down with some +X/outward, matching the A-pose forearm) rather than guessed by eye. offset_frac seats the wrist cap against the hidden forearm stump: like the boot, the Hand.L bone head sits INSIDE the hidden mesh_regions.hand window (x=0.689 is well within [0.5,0.8]), so the visible stump ends noticeably further back (toward the elbow) than the bone head itself, not at it. The needed offset was measured numerically (not eyeballed): found the remaining stump vertices closest to the bone's own axis line after hiding, and the hand mesh's own wrist-face position for several candidate offsets, and picked the offset where they meet -- an earlier small, wrong-signed nudge (toward the fingers instead of the elbow) left both hands visibly floating off the arms.",
+      "fit": { "scale": 0.20, "rotation_deg": [73.86, -25.68, 33.74], "offset_frac": [-0.05, 0, 0.0866] }
     }
   ],
 

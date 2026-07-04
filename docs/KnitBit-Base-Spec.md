@@ -520,17 +520,44 @@ both found and fixed while fitting the real assets, not anticipated in advance:
    accepted rather than chased further, the same way Phase A documented the
    belt-charm's stray chain-link fragment rather than fully solving it: both are
    inherent AI-reconstruction/flat-cut artifacts, not code bugs.
+3. **`offset_frac`'s X component wasn't mirrored, and this shipped once before
+   being caught.** `offset_frac` is added as a plain world-space translation
+   (`base_location + offset_frac·CHAR_HEIGHT`), outside the rotation/mirror-scale
+   math above, and unlike rotation it needs only a straightforward reflection
+   (negate X, keep Y/Z) for the mirrored instance to be a true mirror position —
+   but the code applied the **same** unmirrored offset to both sides. Every prior
+   trait's `offset_frac.x` happened to be `0` (antenna, belt charm, boots), so this
+   was never exercised until the hand's nonzero `x` offset shipped: the left hand
+   looked plausible, the right hand's wrist visibly floated off its own forearm,
+   because the same `+x` nudge that (partially) helped the left pushed the right
+   the wrong way. Fixed by negating `offset_frac.x` for every mirrored instruction,
+   the same way rotation was already handled.
 
-**Fit values were derived, not eyeballed, where the math was tractable:**
+**Fit values were derived, not eyeballed, where the math was tractable — but
+"derived" is not the same as "correct on the first try," and the hand's position
+specifically needed a second, harder pass:**
 - Boot yaw (`rotation_deg` z=-90): found by rendering the isolated boot mesh from
   directly above at four candidate yaws and reading which one pointed the toe
   toward the character's front (-Y).
-- Hand orientation (`rotation_deg` = computed Euler): the fist's local knuckle
-  direction (-Y, read off isolated front/side renders) needs to end up along the
-  `Hand.L` bone's actual head→tail direction (mostly -Z/down with some +X/outward,
-  matching the A-pose forearm) — computed exactly with
-  `mathutils.Vector.rotation_difference()` rather than guessed by eye, and it
-  produced a correctly-angled fist on the **first** real-pipeline render.
+- Hand **orientation** (`rotation_deg`): the fist's local knuckle direction (-Y,
+  read off isolated front/side renders) needs to end up along the `Hand.L` bone's
+  actual head→tail direction — computed exactly with
+  `mathutils.Vector.rotation_difference()` rather than guessed by eye, and this
+  part was correct from the first real-pipeline render.
+- Hand **position** (`offset_frac`) was not correct at first, for two compounding
+  reasons: the offset-mirror bug above (issue 3), and an initial offset far too
+  small in magnitude. Like the boot, the `Hand.L` bone head sits **inside** the
+  hidden `mesh_regions.hand` window (`x=0.689`, well within `[0.5, 0.8]`), so the
+  visible forearm stump ends noticeably further back toward the elbow than the
+  bone head — placing the wrist cap AT the bone head with no/a small offset
+  leaves it floating well clear of the stump. This was under-corrected in the
+  first pass (a small nudge that merely looked plausible from one misleading
+  crop angle) and only became obvious once a wide, unclipped render showed both
+  wrists visibly disconnected from their arms. Fixed the same rigorous way as the
+  boot: measured the actual remaining stump vertices closest to the bone's own
+  axis line, measured the placed hand mesh's own wrist-face position for several
+  candidate offsets along the bone direction, and picked the offset (roughly
+  10% of the bone's length, back toward the elbow) where the two numbers meet.
 
 Both traits are wired into the `pilot` preset only for now (not `variant_b`/`_c`)
 — `variant_c`'s watering can holds in the hand, and a closed-fist replacement

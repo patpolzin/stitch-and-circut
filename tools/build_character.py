@@ -166,7 +166,18 @@ def fit_instruction(instr, body_obj=None, armature_obj=None, hidden=None):
     # every prop back at the scene origin instead of at its target. For a
     # socket, local space IS the socket's own position (offset only); for a
     # bone attach, the bone head is the base position and offset fine-tunes it.
-    prop.location = base_location + mathutils.Vector(tuple(f * CHAR_HEIGHT for f in instr.offset_frac))
+    off_x, off_y, off_z = instr.offset_frac
+    if instr.mirror_x:
+        # offset_frac is a plain world-space translation (no TRS-order subtlety
+        # like the rotation below), so mirroring it is direct reflection: negate
+        # X, keep Y/Z. Every existing trait's offset_frac.x happened to be 0
+        # (antenna, belt charm, boots), so this was never exercised until the
+        # hand's offset (0.02, 0, -0.035) exposed it: without the negation, the
+        # SAME +x nudge that correctly seats the left hand against its stump
+        # pushes the right hand's wrist cap the WRONG way (toward the body
+        # instead of out to meet its own stump), leaving it visibly disconnected.
+        off_x = -off_x
+    prop.location = base_location + mathutils.Vector((off_x * CHAR_HEIGHT, off_y * CHAR_HEIGHT, off_z * CHAR_HEIGHT))
     # The glTF importer leaves objects in QUATERNION mode, where assigning
     # rotation_euler is silently ignored. Compose the manifest hint ON TOP of
     # the imported orientation via quaternions: hint (0,0,0) keeps the prop as
