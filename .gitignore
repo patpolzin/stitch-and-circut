@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+
+# Game hand-off exports: regenerate with `blender --background --python tools/build_character.py -- <preset> anim=1`
+# (102 MB — exceeds GitHub's 100 MB hard limit; move to Git LFS if it ever needs committing)
+assets/3d/knitbit_base/*_anim.glb
