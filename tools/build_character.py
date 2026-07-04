@@ -39,6 +39,9 @@ import knitbit_manifest as km  # noqa: E402
 MANIFEST = km.load()
 ASSET_DIR = km.ASSET_DIR
 BASE_GLB = os.path.join(ASSET_DIR, MANIFEST["base"]["rig"])
+# Same rig + sockets as BASE_GLB but with the 1-second procedural Idle clip
+# (tools/rig_knitbit.py exports both). Used by animated (game-ready) builds.
+BASE_IDLE_GLB = os.path.join(ASSET_DIR, "knitbit_base_idle.glb")
 CHAR_HEIGHT = MANIFEST["base"]["char_height"]
 
 
@@ -249,6 +252,53 @@ def _make_dynamic(prop, dyn):
     bpy.context.view_layer.update()
 
 
+def resolve_attach_bone(instr):
+    """The bone a prop should follow under animation. limb_pair instructions
+    carry it directly; socket mounts read the socket empty's `attach_bone`
+    custom property, which tools/rig_knitbit.py stamps on every socket."""
+    if instr.attach_bone:
+        return instr.attach_bone
+    socket = bpy.data.objects.get(instr.socket) if instr.socket else None
+    if socket is not None and "attach_bone" in socket:
+        return socket["attach_bone"]
+    return None
+
+
+def bake_world(prop):
+    """Bake the prop's full world transform (socket parenting, offsets, mirror
+    scale) into its mesh vertices, leaving the object unparented at identity.
+    Required before skinning: glTF viewers IGNORE the node transform of a
+    skinned mesh (skins live in skeleton space per the spec), so any placement
+    still carried on the node/parent chain would silently vanish in engines.
+    A negative determinant (the mirrored right-side instances) inverts winding,
+    so normals are flipped back to keep the surface facing outward."""
+    m = prop.matrix_world.copy()
+    prop.parent = None
+    prop.data.transform(m)
+    if m.determinant() < 0:
+        prop.data.flip_normals()
+    prop.matrix_basis = mathutils.Matrix.Identity(4)
+    bpy.context.view_layer.update()
+
+
+def skin_prop_to_bone(prop, bone_name, armature_obj):
+    """Make a fitted prop animate with the skeleton: rigid-weight every vertex
+    to `bone_name` (weight 1.0) and add an Armature modifier, so the glTF
+    exporter emits it as a skinned mesh that rides its bone. This is what turns
+    a static assembly into a game-ready character — without it, the body
+    animates and every attached piece stays frozen in place (the audit showed
+    the preview GLBs exported exactly that way). Call bake_world() first."""
+    if bone_name not in armature_obj.data.bones:
+        print(f"[build] WARNING: cannot skin '{prop.name}' — bone '{bone_name}' missing")
+        return False
+    vg = prop.vertex_groups.new(name=bone_name)
+    vg.add(list(range(len(prop.data.vertices))), 1.0, "REPLACE")
+    mod = prop.modifiers.new("Armature", "ARMATURE")
+    mod.object = armature_obj
+    prop.parent = armature_obj  # tidy hierarchy; transform is identity
+    return True
+
+
 def setup_render(engine="BLENDER_EEVEE_NEXT"):
     scene = bpy.context.scene
     try:
@@ -294,7 +344,31 @@ def render_view(cam_obj, angle_deg, out_path, distance=4.0, height_frac=0.0):
     print(f"[build] rendered: {out_path}")
 
 
-def export(out_path):
+def render_pfp(cam_obj, out_path, angle_deg=22):
+    """Square head-and-shoulders portrait — the profile picture applied to the
+    user's account after customization. Tight ortho framing on the monitor head
+    (which spans roughly the top half of the body), from a slight 3/4 angle so
+    antennas/side traits read."""
+    scene = bpy.context.scene
+    prev_res = (scene.render.resolution_x, scene.render.resolution_y)
+    prev_scale = cam_obj.data.ortho_scale
+    scene.render.resolution_x = scene.render.resolution_y = 512
+    # 0.72 (not tighter) so tall head-mounted traits — the headphone band arcs
+    # well above the crown — stay inside the square frame.
+    cam_obj.data.ortho_scale = CHAR_HEIGHT * 0.72
+    aim_z = CHAR_HEIGHT * 0.30  # head centre; head occupies ~z 0.15..0.95
+    rad = math.radians(angle_deg)
+    cam_obj.location = (4 * math.sin(rad), -4 * math.cos(rad), aim_z)
+    direction = mathutils.Vector((0, 0, aim_z)) - cam_obj.location
+    cam_obj.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
+    scene.render.filepath = out_path
+    bpy.ops.render.render(write_still=True)
+    scene.render.resolution_x, scene.render.resolution_y = prev_res
+    cam_obj.data.ortho_scale = prev_scale
+    print(f"[build] rendered PFP: {out_path}")
+
+
+def export(out_path, animations=False):
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.export_scene.gltf(
@@ -303,43 +377,62 @@ def export(out_path):
         export_yup=True,
         export_apply=False,
         export_skins=True,
-        export_animations=False,
+        export_animations=animations,
         export_extras=True,
         use_selection=False,
     )
     print(f"[build] exported: {out_path}")
 
 
-def build(instructions, out_stem, out_dir, render=True):
-    print(f"[build] === {out_stem} ({len(instructions)} props) ===")
+def build(instructions, out_stem, out_dir, render=True, animated=False, export_glb=True):
+    """Assemble one character. Two output modes:
+
+    - static preview (default): props object-parented to sockets/bones, no
+      animation — the QA/render artifact. NOT game-usable under animation.
+    - animated (animated=True): built on the Idle-clip base, every prop baked
+      to world space and rigid-skinned to its attach bone, exported WITH the
+      animation — the actual rigged, game-ready customized KnitBit."""
+    mode = "animated/game-ready" if animated else "static preview"
+    print(f"[build] === {out_stem} ({len(instructions)} props, {mode}) ===")
     clean_scene()
-    base_objs = import_glb(BASE_GLB)
+    base_objs = import_glb(BASE_IDLE_GLB if animated else BASE_GLB)
     body_obj = find_body(base_objs)
     armature_obj = find_armature(base_objs)
     hidden = set()  # (region_key, mirror_x) already hidden this build, avoid re-deleting
 
     fitted = []
     for instr in instructions:
-        if fit_instruction(instr, body_obj, armature_obj, hidden):
-            fitted.append(instr.name)
+        prop = fit_instruction(instr, body_obj, armature_obj, hidden)
+        if not prop:
+            continue
+        fitted.append(instr.name)
+        if animated:
+            bone = resolve_attach_bone(instr)
+            bake_world(prop)
+            if bone and skin_prop_to_bone(prop, bone, armature_obj):
+                print(f"[build]   skinned '{prop.name}' -> bone '{bone}'")
     print(f"[build] fitted {len(fitted)}/{len(instructions)}: {fitted}")
 
-    export(os.path.join(out_dir, out_stem + ".glb"))
+    if export_glb:
+        suffix = "_anim.glb" if animated else ".glb"
+        export(os.path.join(out_dir, out_stem + suffix), animations=animated)
     if render:
         cam = setup_render()
         render_view(cam, 25, os.path.join(out_dir, out_stem + "_front.png"))
         render_view(cam, 90, os.path.join(out_dir, out_stem + "_side.png"))
+        render_pfp(cam, os.path.join(out_dir, out_stem + "_pfp.png"))
     return fitted
 
 
 def _parse_args(argv):
     """Split `--` args into: preset names, custom slot=trait pairs, and options
-    (out=..., outdir=...)."""
+    (out=..., outdir=..., render=0, anim=1 for the game-ready animated export,
+    glb=0 to skip GLB export and only render)."""
     presets, loadout, opts = [], {}, {}
     for tok in argv:
         if "=" in tok:
             key, val = tok.split("=", 1)
-            if key in ("out", "outdir", "render"):
+            if key in ("out", "outdir", "render", "anim", "glb"):
                 opts[key] = val
             else:
                 loadout[key] = val
@@ -356,21 +449,24 @@ def main():
     presets, loadout, opts = _parse_args(argv)
     out_dir = opts.get("outdir", ASSET_DIR)
     render = opts.get("render", "1") not in ("0", "false", "no")
+    animated = opts.get("anim", "0") in ("1", "true", "yes")
+    export_glb = opts.get("glb", "1") not in ("0", "false", "no")
 
-    print(f"[build] base: {BASE_GLB}")
+    print(f"[build] base: {BASE_IDLE_GLB if animated else BASE_GLB}")
     print(f"[build] outdir: {out_dir}")
 
     if loadout:
         # one custom character from explicit slot=trait pairs
         instrs = km.resolve_loadout(MANIFEST, loadout)
-        build(instrs, opts.get("out", "knitbit_custom_preview"), out_dir, render)
+        build(instrs, opts.get("out", "knitbit_custom_preview"), out_dir,
+              render, animated, export_glb)
 
     # named presets (default to all if neither presets nor a custom loadout given)
     if not presets and not loadout:
         presets = km.preset_names(MANIFEST)
     for name in presets:
         stem, instrs = km.resolve_preset(MANIFEST, name)
-        build(instrs, stem, out_dir, render)
+        build(instrs, stem, out_dir, render, animated, export_glb)
 
     print("[build] done.")
 
