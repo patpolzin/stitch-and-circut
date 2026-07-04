@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KnitBit Builder — character customization</title>
+<style>
+  :root { --bg:#191b1f; --panel:#22252b; --ink:#e8eaee; --muted:#9aa1ab; --line:#33373f; --accent:#38e655; }
+  * { box-sizing:border-box; margin:0; }
+  body { display:flex; height:100vh; background:var(--bg); color:var(--ink);
+         font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif; overflow:hidden; }
+  #stage { flex:1; position:relative; min-width:0; }
+  #stage canvas { display:block; }
+  #hud { position:absolute; left:14px; top:12px; color:var(--muted); font-size:12px; }
+  #panel { width:320px; background:var(--panel); border-left:1px solid var(--line);
+           padding:18px 16px; overflow-y:auto; }
+  h1 { font-size:18px; margin-bottom:2px; }
+  .sub { color:var(--muted); font-size:12px; margin-bottom:14px; }
+  .slot { margin-bottom:12px; }
+  .slot label { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+                color:var(--muted); margin-bottom:4px; }
+  .slot select { width:100%; padding:7px 8px; background:#1a1c21; color:var(--ink);
+                 border:1px solid var(--line); border-radius:8px; font-size:13px; }
+  #profile { margin-top:18px; padding:12px; border:1px solid var(--line); border-radius:12px;
+             display:flex; gap:12px; align-items:center; }
+  #avatar { width:72px; height:72px; border-radius:50%; background:#111; object-fit:cover;
+            border:2px solid var(--line); }
+  #profile .who { flex:1; }
+  #profile .who b { display:block; font-size:13px; }
+  #profile .who span { font-size:11px; color:var(--muted); }
+  button { width:100%; margin-top:14px; padding:10px; border:0; border-radius:10px;
+           background:var(--accent); color:#0b1409; font-weight:700; font-size:14px; cursor:pointer; }
+  button:hover { filter:brightness(1.08); }
+  #status { margin-top:10px; font-size:11px; color:var(--muted); min-height:15px; }
+  a.dl { display:block; margin-top:6px; font-size:11px; color:var(--accent); }
+  a.dl[hidden] { display:none; }  /* display:block would defeat the hidden attribute */
+</style>
+</head>
+<body>
+<div id="stage"><div id="hud">drag to orbit · scroll to zoom</div></div>
+<div id="panel">
+  <h1>KnitBit Builder</h1>
+  <div class="sub">Customize your Bit — live 3D preview with idle motion.</div>
+  <div id="slots"></div>
+  <div id="profile">
+    <img id="avatar" alt="profile picture">
+    <div class="who"><b>your_profile</b><span id="avatarState">no picture yet</span></div>
+  </div>
+  <button id="pfpBtn">📸 Save look &amp; take profile picture</button>
+  <a class="dl" id="pfpDl" hidden download="knitbit_pfp.png">download profile picture</a>
+  <div id="status">loading…</div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from './vendor/GLTFLoader.js';
+import { OrbitControls } from './vendor/OrbitControls.js';
+
+const WEB = '../assets/3d/knitbit_base/web/';
+const stage = document.getElementById('stage');
+const statusEl = document.getElementById('status');
+// hooks for automated verification (Playwright)
+window.__KB = { ready:false, equips:0, pfp:false };
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.35;
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x191b1f);
+const camera = new THREE.PerspectiveCamera(33, 1, 0.05, 60);
+const controls = new OrbitControls(camera, renderer.domElement);
+
+// NOTE: scene.add() returns the SCENE, not the child — chaining .position.set
+// off it once silently translated the whole world. Keep lights in variables.
+scene.add(new THREE.HemisphereLight(0xe6ecf4, 0x3a3f48, 1.6));
+const key = new THREE.DirectionalLight(0xffffff, 3.0);
+key.position.set(2.4, 3.5, 2.8);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xaebbd0, 1.1);
+fill.position.set(-3, 1, -2);
+scene.add(fill);
+const front = new THREE.DirectionalLight(0xffffff, 0.9);
+front.position.set(0, 0.6, 5);
+scene.add(front);
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+
+const loader = new GLTFLoader();
+const loadGLB = url => new Promise((ok, err) => loader.load(url, ok, undefined, err));
+
+const manifest = await (await fetch(WEB + 'manifest.web.json')).json();
+const H = manifest.base.char_height;
+camera.position.set(1.7, H * 0.26, 4.1);
+controls.target.set(0, 0, 0);
+resize();
+
+// ---------- base character ----------
+const baseGltf = await loadGLB(WEB + manifest.base.file);
+scene.add(baseGltf.scene);
+baseGltf.scene.updateMatrixWorld(true);
+
+const bones = {}, parts = {}, boneRestInv = {};
+baseGltf.scene.traverse(o => {
+  if (o.isBone) bones[o.name] = o;
+  if (manifest.base.parts.includes(o.name)) parts[o.name] = o;
+});
+// rest-pose world inverses, captured BEFORE the mixer ever runs — attach math
+// must be animation-time independent or pieces get a mid-sway error baked in
+for (const [n, b] of Object.entries(bones))
+  boneRestInv[n] = b.matrixWorld.clone().invert();
+
+const mixer = new THREE.AnimationMixer(baseGltf.scene);
+const idleClip = baseGltf.animations.find(a => a.name.includes(manifest.base.animation)) || baseGltf.animations[0];
+if (idleClip) mixer.clipAction(idleClip).play();
+
+// ---------- trait equipping ----------
+const gltfCache = {};                       // traitId -> Promise<gltf>
+const equipped = {};                        // slot -> {meshes:[], hides:[], pend:null}
+const traitById = Object.fromEntries(manifest.traits.map(t => [t.id, t]));
+
+function attachRestWorld(object3d, bone, restWorld) {
+  // parent under the bone with a local matrix that reproduces `restWorld`
+  // at the bone's REST pose (bone.matrixWorld may be mid-animation right now)
+  const local = boneRestInv[bone.name].clone().multiply(restWorld);
+  bone.add(object3d);
+  local.decompose(object3d.position, object3d.quaternion, object3d.scale);
+}
+
+async function equip(slot, traitId) {
+  const prev = equipped[slot];
+  if (prev) {
+    prev.meshes.forEach(m => m.parent?.remove(m));
+    prev.hides.forEach(p => { if (parts[p]) parts[p].visible = true; });
+    delete equipped[slot];
+  }
+  if (!traitId) { window.__KB.equips++; return; }
+  const t = traitById[traitId];
+  gltfCache[traitId] ??= loadGLB(WEB + t.file);
+  const gltf = await gltfCache[traitId];
+  const entry = { meshes: [], hides: t.hides || [], pend: null };
+  const dyn = manifest.slots[slot]?.dynamic;
+
+  for (const att of t.attachments) {
+    const src = gltf.scene.getObjectByName(att.node);
+    const bone = bones[att.bone];
+    if (!src || !bone) continue;
+    const mesh = src.clone(true);
+    // measure the piece's authored (baked-world) rest transform
+    scene.add(mesh);
+    mesh.updateMatrixWorld(true);
+    const restWorld = mesh.matrixWorld.clone();
+    scene.remove(mesh);
+
+    if (dyn && src.userData.knitbit_pivot_pos) {
+      // free-hanging charm: pivot group at the hook, mesh below it, so the
+      // runtime pendulum can swing the piece about the hook
+      const p = src.userData.knitbit_pivot_pos;           // Blender Z-up coords
+      const hook = new THREE.Vector3(p[0], p[2], -p[1]);  // -> glTF Y-up
+      const pivot = new THREE.Group();
+      const pivotWorld = new THREE.Matrix4().setPosition(hook);
+      attachRestWorld(pivot, bone, pivotWorld);
+      const rel = pivotWorld.clone().invert().multiply(restWorld);
+      pivot.add(mesh);
+      rel.decompose(mesh.position, mesh.quaternion, mesh.scale);
+      entry.pend = { pivot, angle: 0, vel: 0,
+                     stiffness: dyn.stiffness ?? 0.12, damping: dyn.damping ?? 0.85,
+                     maxA: THREE.MathUtils.degToRad(dyn.max_angle_deg ?? 22) };
+      entry.meshes.push(pivot);
+    } else {
+      attachRestWorld(mesh, bone, restWorld);
+      entry.meshes.push(mesh);
+    }
+  }
+  entry.hides.forEach(p => { if (parts[p]) parts[p].visible = false; });
+  equipped[slot] = entry;
+  window.__KB.equips++;
+}
+
+// ---------- UI ----------
+const slotsEl = document.getElementById('slots');
+const slotOrder = Object.keys(manifest.slots);
+for (const slot of slotOrder) {
+  const opts = manifest.traits.filter(t => t.slot === slot);
+  const wrap = document.createElement('div');
+  wrap.className = 'slot';
+  const themeName = id => manifest.themes[id]?.label?.split(' /')[0] ?? id;
+  wrap.innerHTML = `<label>${manifest.slots[slot].label}</label>`;
+  const sel = document.createElement('select');
+  sel.id = 'sel_' + slot;
+  sel.innerHTML = `<option value="">— none —</option>` +
+    opts.map(t => `<option value="${t.id}">${t.label} · ${themeName(t.theme)}</option>`).join('');
+  sel.onchange = async () => { statusEl.textContent = 'updating ' + slot + '…';
+                               await equip(slot, sel.value);
+                               statusEl.textContent = 'ready'; };
+  wrap.appendChild(sel);
+  slotsEl.appendChild(wrap);
+}
+
+// start from the pilot preset
+const startLoadout = manifest.presets.pilot ?? {};
+for (const [slot, tid] of Object.entries(startLoadout)) {
+  const sel = document.getElementById('sel_' + slot);
+  if (sel) sel.value = tid;
+  await equip(slot, tid);
+}
+
+// ---------- profile picture ----------
+// Captured with the MAIN renderer (temporarily square) — a second WebGL
+// renderer has its own GL context and can't see this scene's uploaded GPU
+// resources, which produced an empty avatar in the first cut of this page.
+const pfpSize = 512;
+const pfpCam = new THREE.OrthographicCamera(-H*0.36, H*0.36, H*0.36, -H*0.36, 0.05, 60);
+document.getElementById('pfpBtn').onclick = () => {
+  const aim = new THREE.Vector3(0, H * 0.30, 0);   // head centre (matches render_pfp)
+  const a = THREE.MathUtils.degToRad(22);
+  pfpCam.position.set(4 * Math.sin(a), aim.y, 4 * Math.cos(a));
+  pfpCam.lookAt(aim);
+  const prevPR = renderer.getPixelRatio();
+  renderer.setPixelRatio(1);
+  renderer.setSize(pfpSize, pfpSize, false);
+  renderer.render(scene, pfpCam);
+  const url = renderer.domElement.toDataURL('image/png');
+  renderer.setPixelRatio(prevPR);
+  resize();  // restore viewport size + camera aspect
+  document.getElementById('avatar').src = url;
+  document.getElementById('avatarState').textContent = 'profile picture applied ✓';
+  const dl = document.getElementById('pfpDl');
+  dl.href = url; dl.hidden = false;
+  statusEl.textContent = 'profile picture captured';
+  window.__KB.pfp = true;
+};
+
+// ---------- animation loop ----------
+const clock = new THREE.Clock();
+const hips = bones['Hips'];
+const hipsRestY = hips ? hips.position.y : 0;
+let prevHipX = 0;
+
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+  mixer.update(dt);
+  // gentle procedural body bob on top of the clip (the clip animates chest +
+  // head; Hips is free, so this doesn't fight the mixer) — keeps the whole
+  // character and its hanging charm subtly alive
+  if (hips) {
+    hips.position.y = hipsRestY + Math.sin(t * 2.4) * 0.008;
+    hips.rotation.z = Math.sin(t * 1.1) * 0.012;
+  }
+  // charm pendulum: spring toward vertical, excited by hip sway
+  for (const e of Object.values(equipped)) {
+    if (!e.pend) continue;
+    const p = e.pend;
+    const hipX = hips ? hips.rotation.z : 0;
+    const drive = (hipX - prevHipX) * 40;
+    p.vel += (-p.stiffness * 60 * p.angle - drive) * dt;
+    p.vel *= Math.pow(p.damping, dt * 60);
+    p.angle = THREE.MathUtils.clamp(p.angle + p.vel * dt, -p.maxA, p.maxA);
+    p.pivot.rotation.x = p.angle;
+    p.pivot.rotation.z = p.angle * 0.4;
+  }
+  prevHipX = hips ? hips.rotation.z : 0;
+  controls.update();
+  renderer.render(scene, camera);
+});
+
+statusEl.textContent = 'ready';
+window.__KB.ready = true;
+</script>
+</body>
+</html>

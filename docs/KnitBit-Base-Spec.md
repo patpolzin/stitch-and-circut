@@ -563,6 +563,71 @@ Both traits are wired into the `pilot` preset only for now (not `variant_b`/`_c`
 — `variant_c`'s watering can holds in the hand, and a closed-fist replacement
 mesh's visual compatibility with a held item hasn't been checked yet.
 
+### Animated (game-ready) export — the rigged customized KnitBit
+
+**Status: built + verified.** The static preview GLBs above are QA artifacts only:
+they export with **no animation** and every trait as an unskinned node, so under
+any skeleton animation the body moves and all attached pieces (including the
+character's own boots and hands) stay frozen. The product the platform actually
+needs — *a rigged customized KnitBit the user can take into games* — is the
+animated mode:
+
+```
+blender --background --python tools/build_character.py -- pilot anim=1
+# -> knitbit_pilot_preview_anim.glb  (rigged, Idle clip included)
+```
+
+`anim=1` builds on `knitbit_base_idle.glb`, **bakes every fitted prop to world
+space** (glTF viewers ignore a skinned mesh's node transform — placement must
+live in the vertices and bind matrices; mirrored instances get their inverted
+winding flipped back), **rigid-weights every vertex to the prop's attach bone**
+(socket empties carry `attach_bone` extras from the rig script; `limb_pair`
+traits carry the bone directly), and exports **with** the Idle clip.
+
+Verified the way an engine sees it — fresh import of the exported GLB:
+- all 10 pilot props move with their bones through the Idle clip;
+- a first check flagged boots/charm "frozen", which turned out to be the Idle
+  clip simply not animating Hips/Feet (it is a chest-sway + head-nod clip);
+  manually posing those bones proved all bindings follow (deltas 0.05–0.15).
+
+Every build also emits `<stem>_pfp.png` — a square 512 head-and-shoulders
+portrait at a 3/4 angle (framed wide enough for tall head traits like the
+headphone band): the **profile picture** applied to the user's account.
+`glb=0` renders without re-exporting GLBs.
+
+### Web bundle + live character editor
+
+**Status: built + verified end-to-end.** The raw assets are far too heavy for a
+browser editor (one prop: 32k verts + ~13.5 MB textures; one assembled GLB:
+~95 MB). `tools/export_web_bundle.py` produces `assets/3d/knitbit_base/web/`
+(~20 MB for the whole library):
+
+| File | Contents |
+| --- | --- |
+| `base.glb` (4 MB) | Idle-animated rigged base, body **split into named toggleable parts** (`base_core`, `base_hand_l/r`, `base_foot_l/r`, cut along the same `mesh_regions` windows) — the editor equips boots/hands by toggling part visibility, no client-side vertex surgery. Textures ≤1024. |
+| `piece_<trait>.glb` (0.6–1.4 MB each) | Every trait, exact builder placement, baked to world space, decimated to ≤9k tris, textures ≤512, `knitbit_attach_bone`/pivot extras on each node. |
+| `manifest.web.json` | Slots, traits (file/attachments/hides), themes, presets — everything the editor needs. |
+
+`demos/knitbit_builder.html` (three.js, vendored in `demos/vendor/`) is the
+customization platform prototype: the KnitBit **stands in 3D with the Idle clip
+looping** (plus a gentle procedural hip bob the clip leaves free), **live
+updates** as the user picks traits per slot (pieces `bone.attach()`ed via
+rest-pose matrices so equipping is animation-time independent; mesh-swap traits
+toggle base part visibility), the belt charm swings on a **runtime pendulum**
+driven by the manifest's dynamic params, and **“Save look & take profile
+picture”** captures a square portrait and applies it to the profile widget
+(+ download). Run `python3 -m http.server` at the repo root and open
+`/demos/knitbit_builder.html`.
+
+Verified with headless Chromium (Playwright): loads with the pilot loadout and
+no page errors; idle motion confirmed by pixel-diffing frames 0.7 s apart;
+live-swapped scout antennae + headphones; PFP capture produces a real portrait
+(420 KB PNG) applied to the profile. Two bugs were found and fixed by that
+harness, both invisible in code review: `scene.add(light).position.set(...)`
+translated the whole scene (`add()` returns the scene), and capturing the PFP
+with a second `WebGLRenderer` produced an empty image (separate GL context —
+capture now reuses the main renderer at 512²).
+
 ### Not yet built (future builder work)
 - **More boot/hand options**: only one pick exists per slot so far (matching how
   Phase A proved one option per slot before Phase B scaled to three) — the
@@ -574,4 +639,11 @@ mesh's visual compatibility with a held item hasn't been checked yet.
 - **Compatibility / rarity rules** (build-order step 8): the data layer that says
   which traits may coexist and how often — a natural companion file to the manifest.
 - **Large GLBs → Git LFS:** assembled preview GLBs exceed GitHub's 50 MB warning;
-  move `*.glb` to LFS before the library grows.
+  move `*.glb` to LFS before the library grows. (The web bundle side-steps this —
+  its 20 MB total is committed fine — but the raw previews still trip it.)
+- **Editor → account wiring**: the builder prototype captures the PFP and applies
+  it to a mock profile widget; persisting the loadout + PFP to a real user
+  account/backend (and handing the `anim=1` GLB to games) is platform work.
+- **Richer idle**: the current clip is chest-sway + head-nod only (the editor
+  adds a small procedural hip bob). A fuller authored idle (weight shift, foot
+  roll) means extending `tools/rig_knitbit.py`'s clip and re-exporting the base.

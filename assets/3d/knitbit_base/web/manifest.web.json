@@ -1,0 +1,393 @@
+{
+  "base": {
+    "file": "base.glb",
+    "animation": "Idle",
+    "parts": [
+      "base_core",
+      "base_hand_l",
+      "base_hand_r",
+      "base_foot_l",
+      "base_foot_r"
+    ],
+    "char_height": 1.911
+  },
+  "slots": {
+    "antenna": {
+      "label": "Antenna"
+    },
+    "helmet_panel": {
+      "label": "Head Top Panel"
+    },
+    "chest_icon": {
+      "label": "Chest Icon"
+    },
+    "belt_charm": {
+      "label": "Belt Charm",
+      "dynamic": {
+        "pivot": "hook_top",
+        "attach_bone": "Hips",
+        "type": "pendulum",
+        "stiffness": 0.12,
+        "damping": 0.85,
+        "max_angle_deg": 22,
+        "axes": [
+          "x",
+          "y"
+        ]
+      }
+    },
+    "accessory": {
+      "label": "Accessory"
+    },
+    "boots": {
+      "label": "Boots"
+    },
+    "hands": {
+      "label": "Hands"
+    }
+  },
+  "traits": [
+    {
+      "id": "antenna_classic",
+      "slot": "antenna",
+      "label": "Classic Bulb",
+      "theme": "neutral",
+      "file": "piece_antenna_classic.glb",
+      "attachments": [
+        {
+          "node": "trait_antenna_classic_left",
+          "bone": "Head"
+        },
+        {
+          "node": "trait_antenna_classic_right",
+          "bone": "Head"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "antenna_scout",
+      "slot": "antenna",
+      "label": "Scout Camera",
+      "theme": "scout",
+      "file": "piece_antenna_scout.glb",
+      "attachments": [
+        {
+          "node": "trait_antenna_scout_left",
+          "bone": "Head"
+        },
+        {
+          "node": "trait_antenna_scout_right",
+          "bone": "Head"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "antenna_leaf",
+      "slot": "antenna",
+      "label": "Leaf Tip",
+      "theme": "garden",
+      "file": "piece_antenna_leaf.glb",
+      "attachments": [
+        {
+          "node": "trait_antenna_leaf_left",
+          "bone": "Head"
+        },
+        {
+          "node": "trait_antenna_leaf_right",
+          "bone": "Head"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "panel_reinforced",
+      "slot": "helmet_panel",
+      "label": "Reinforced",
+      "theme": "neutral",
+      "file": "piece_panel_reinforced.glb",
+      "attachments": [
+        {
+          "node": "trait_panel_reinforced",
+          "bone": "Head"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "panel_smooth",
+      "slot": "helmet_panel",
+      "label": "Smooth",
+      "theme": "neutral",
+      "file": "piece_panel_smooth.glb",
+      "attachments": [
+        {
+          "node": "trait_panel_smooth",
+          "bone": "Head"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "panel_yarn",
+      "slot": "helmet_panel",
+      "label": "Yarn Patch",
+      "theme": "garden",
+      "file": "piece_panel_yarn.glb",
+      "attachments": [
+        {
+          "node": "trait_panel_yarn",
+          "bone": "Head"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "chest_star",
+      "slot": "chest_icon",
+      "label": "Star",
+      "theme": "neutral",
+      "file": "piece_chest_star.glb",
+      "attachments": [
+        {
+          "node": "trait_chest_star",
+          "bone": "Chest"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "chest_wrench",
+      "slot": "chest_icon",
+      "label": "Wrench + Gear",
+      "theme": "maker",
+      "file": "piece_chest_wrench.glb",
+      "attachments": [
+        {
+          "node": "trait_chest_wrench",
+          "bone": "Chest"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "chest_leaf",
+      "slot": "chest_icon",
+      "label": "Leaf",
+      "theme": "garden",
+      "file": "piece_chest_leaf.glb",
+      "attachments": [
+        {
+          "node": "trait_chest_leaf",
+          "bone": "Chest"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "charm_gear",
+      "slot": "belt_charm",
+      "label": "Gear",
+      "theme": "neutral",
+      "file": "piece_charm_gear.glb",
+      "attachments": [
+        {
+          "node": "trait_charm_gear",
+          "bone": "Hips"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "charm_coin",
+      "slot": "belt_charm",
+      "label": "Coin",
+      "theme": "maker",
+      "file": "piece_charm_coin.glb",
+      "attachments": [
+        {
+          "node": "trait_charm_coin",
+          "bone": "Hips"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "charm_flower",
+      "slot": "belt_charm",
+      "label": "Flower",
+      "theme": "garden",
+      "file": "piece_charm_flower.glb",
+      "attachments": [
+        {
+          "node": "trait_charm_flower",
+          "bone": "Hips"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "acc_backpack",
+      "slot": "accessory",
+      "label": "Backpack",
+      "theme": "neutral",
+      "file": "piece_acc_backpack.glb",
+      "attachments": [
+        {
+          "node": "trait_acc_backpack",
+          "bone": "Chest"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "acc_headphones",
+      "slot": "accessory",
+      "label": "Headphones",
+      "theme": "music",
+      "file": "piece_acc_headphones.glb",
+      "attachments": [
+        {
+          "node": "trait_acc_headphones",
+          "bone": "Head"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "acc_watering_can",
+      "slot": "accessory",
+      "label": "Watering Can",
+      "theme": "garden",
+      "file": "piece_acc_watering_can.glb",
+      "attachments": [
+        {
+          "node": "trait_acc_watering_can",
+          "bone": "Hand.R"
+        }
+      ],
+      "hides": []
+    },
+    {
+      "id": "boot_classic",
+      "slot": "boots",
+      "label": "Classic",
+      "theme": "neutral",
+      "file": "piece_boot_classic.glb",
+      "attachments": [
+        {
+          "node": "trait_boot_classic_left",
+          "bone": "Foot.L"
+        },
+        {
+          "node": "trait_boot_classic_right",
+          "bone": "Foot.R"
+        }
+      ],
+      "hides": [
+        "base_foot_l",
+        "base_foot_r"
+      ]
+    },
+    {
+      "id": "hand_classic",
+      "slot": "hands",
+      "label": "Classic",
+      "theme": "neutral",
+      "file": "piece_hand_classic.glb",
+      "attachments": [
+        {
+          "node": "trait_hand_classic_left",
+          "bone": "Hand.L"
+        },
+        {
+          "node": "trait_hand_classic_right",
+          "bone": "Hand.R"
+        }
+      ],
+      "hides": [
+        "base_hand_l",
+        "base_hand_r"
+      ]
+    }
+  ],
+  "themes": {
+    "neutral": {
+      "label": "Neutral / Base",
+      "accent": "#C9CDD2",
+      "accent2": null,
+      "yarn": "charcoal"
+    },
+    "scout": {
+      "label": "Scout",
+      "accent": "#1FA6A0",
+      "accent2": null
+    },
+    "tank": {
+      "label": "Tank",
+      "accent": "#C4622D",
+      "accent2": null
+    },
+    "arcade": {
+      "label": "Arcade",
+      "accent": "#FF2D95",
+      "accent2": null
+    },
+    "maker": {
+      "label": "Maker",
+      "accent": "#E7B416",
+      "accent2": null
+    },
+    "wizard": {
+      "label": "Wizard",
+      "accent": "#7A3FC4",
+      "accent2": null
+    },
+    "music": {
+      "label": "Music",
+      "accent": "#2D7DFF",
+      "accent2": null
+    },
+    "ghost": {
+      "label": "Ghost",
+      "accent": "#7FE0D4",
+      "accent2": null
+    },
+    "pixel": {
+      "label": "Pixel",
+      "accent": "#38E655",
+      "accent2": null
+    },
+    "garden": {
+      "label": "Garden",
+      "accent": "#4FA82E",
+      "accent2": "#F06FA0"
+    }
+  },
+  "presets": {
+    "pilot": {
+      "antenna": "antenna_classic",
+      "helmet_panel": "panel_reinforced",
+      "chest_icon": "chest_star",
+      "belt_charm": "charm_gear",
+      "accessory": "acc_backpack",
+      "boots": "boot_classic",
+      "hands": "hand_classic"
+    },
+    "variant_b": {
+      "antenna": "antenna_scout",
+      "helmet_panel": "panel_smooth",
+      "chest_icon": "chest_wrench",
+      "belt_charm": "charm_coin",
+      "accessory": "acc_headphones"
+    },
+    "variant_c": {
+      "antenna": "antenna_leaf",
+      "helmet_panel": "panel_yarn",
+      "chest_icon": "chest_leaf",
+      "belt_charm": "charm_flower",
+      "accessory": "acc_watering_can"
+    }
+  }
+}
