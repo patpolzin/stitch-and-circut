@@ -1,8 +1,8 @@
 # KnitBit Face System — Expression Sprites (Phase 3a)
 
-First review batch of the animated face system: **static expression sprites only**.
-Transitions (crossfade), idle loop, and the audio-driven talk-cycle come after this
-batch is reviewed and approved.
+Static expression sprite set for the animated face system — **complete: 10/10
+expressions**. Transitions (crossfade), idle loop, and the audio-driven talk-cycle come
+after this set is reviewed and approved.
 
 The face is a flat pixel-display panel on the helmet — all expression work is 2D
 sprite/texture mapped onto the faceplate (`socket_faceplate` / faceplate UV), never
@@ -17,20 +17,47 @@ keeps the Phase 1 rig untouched.
 | `expression_happy.png` | Big grin, wide eyes | `happy` |
 | `expression_thinking.png` | Eyes up + ellipsis dots | `thinking` |
 | `expression_scared.png` | Wide eyes, small O mouth | `scared` |
+| `expression_effort.png` | Squinting eyes + gritted-teeth blocks | `effort` |
+| `expression_star_eyes.png` | Four-point star eyes + big smile (success) | `starEyes` |
+| `expression_confused.png` | Square eyes + spinner glyph mouth | `confused` |
+| `expression_low_battery.png` | Dim droopy eyes + flat mouth (half-brightness) | `lowBattery` |
+| `expression_startled.png` | Huge wide eyes + tiny o mouth | `startled` |
+| `expression_relieved.png` | Closed arc eyes + soft smile | `relieved` |
 
 Generated at 1024×1024 (1:1) via Higgsfield `nano_banana_pro`, glowing green LED-matrix
 style on black. These are review-resolution source images — for engine use they'll need
 cropping to the screen area, background removal/normalization, and downscaling to a
 consistent sprite sheet (deliberately deferred until the style is approved).
 
-## ⚠️ Expression list discrepancy (needs a decision)
+Known minor deviations from the enum's drawn designs — **resolved by the normalization
+pass**: `expression_relieved.png` was regenerated without its off-design border ring;
+the framing/zoom variance is eliminated by glyph-detection cropping (below).
+(`expression_effort.png`'s angled-block squint remains as a minor stylistic take — kept.)
 
-The production plan references a "12-option expression list," but the only expression
+## Engine-ready normalized set ✅
+
+Produced by `tools/normalize_face_sprites.py` (pure PIL — detects the green-glow glyphs
+via relative channel dominance so `lowBattery`'s intentional dimness survives, crops to
+the glyph bounding box, masks away bezel reflections, scales to a uniform content box,
+composites centered on pure black — the faceplate is a black screen, so black is the
+correct paintable base):
+
+| Path | What |
+| --- | --- |
+| `normalized/<name>.png` | One 512×512 cell per expression, named by `BitExpression` value |
+| `knitbit_face_sheet.png` | Packed 5×2 sprite sheet (2560×1024) |
+| `knitbit_face_sheet.json` | Manifest: expression name → pixel rect / grid cell |
+| `normalized_contact_sheet.png` | Labeled review montage of all 10 cells |
+
+Re-run any time a source sprite changes: `python3 tools/normalize_face_sprites.py`
+
+## Expression list decision (resolved by default)
+
+The production plan referenced a "12-option expression list," but the only expression
 list that exists in this repo is the `BitExpression` enum in
-`game/lib/characters/bit_character.dart` with **10** values: idle, happy, thinking,
-scared, effort, starEyes, confused, lowBattery, startled, relieved. This batch uses 4 of
-those 10 as a style test. Before building the full set, decide which list is
-authoritative (and where the 12-item list's extra entries come from).
+`game/lib/characters/bit_character.dart` with **10** values — so the enum was treated as
+authoritative and all 10 are now generated. If the 12-item list materializes (2 extra
+expressions), they can be added with the same prompt template.
 
 ## Style-consistency reference: Element (not Soul)
 
@@ -47,11 +74,37 @@ authoritative (and where the 12-item list's extra entries come from).
   the character reference); the Element is validated separately with a full-character
   test render.
 
+## Crossfade + idle loop ✅
+
+Implemented twice from one set of shared constants — a production Flame component and a
+browser demo used for automated visual verification:
+
+- **`game/lib/characters/bit_face.dart`** — `BitFace` Flame component. Loads the sheet
+  (copied to `game/assets/images/`), maps grid cells to the `BitExpression` enum, and
+  provides:
+  - `setExpression(expr)` — 220ms opacity crossfade between outgoing/incoming expressions
+    (reads as a smooth screen redraw);
+  - idle glow pulse (~3.2s breath between 94–100% opacity);
+  - scanline sweep (a faint dark band sweeps down every 4.5s, like a CRT refresh);
+  - blink flicker (the display dips to 25% for 70ms at a jittered ~4s interval — works on
+    every expression with no per-expression blink frames).
+- **`demos/face_demo.html`** — self-contained canvas demo of the same system (same
+  constants, kept in sync — see header comment). Open in a browser for the live loop, or
+  load with `#manual` for deterministic stepping via `window.advance(ms)`.
+- **Verified** via Playwright/Chromium screenshots of the manual-stepped demo: crossfade
+  midpoint (both expressions blended at half opacity), scanline mid-sweep, blink-flicker
+  dip, and settled states.
+
+Note: `BitFace` is not yet wired into `BitCharacter` — the character still paints its
+procedural vector face. The swap is the "game wiring" pass below.
+
 ## Next steps (after review)
 
-1. Decide the authoritative expression list (10-enum vs 12-item plan).
-2. Generate the remaining expressions in the approved style.
-3. Normalize into an engine-ready sprite sheet (consistent crop/size/alpha).
-4. Build transitions: crossfade first; micro-animation strips only for a few signature
-   expressions per theme later.
-5. Idle loop (blink/scanline shimmer) + audio-amplitude-driven talk-cycle strip.
+1. ~~Decide the authoritative expression list~~ ✅ resolved: 10-value enum (see above).
+2. ~~Generate the remaining expressions~~ ✅ all 10 generated.
+3. ~~Normalize into an engine-ready sprite sheet~~ ✅ done (see normalized set above).
+4. ~~Crossfade transitions + idle loop~~ ✅ done (`BitFace` + demo, above). Micro-animation
+   strips for signature theme expressions remain a later nice-to-have.
+5. Audio-amplitude-driven talk-cycle strip.
+6. Wire `BitFace` into the game (`bit_character.dart`: swap the procedural `_draw*Face`
+   painting for the `BitFace` component) — its own pass.

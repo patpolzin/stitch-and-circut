@@ -69,7 +69,7 @@ The neutral base uses **charcoal** yarn; theme packs swap yarn color (spec §7).
 | Path | What |
 | --- | --- |
 | `traits/pilot/antenna.glb` | Classic bulb antenna (used as a mirrored pair) |
-| `traits/pilot/helmet_panel.glb` | Reinforced helmet top panel |
+| `traits/pilot/helmet_panel.glb` | Flat top access-panel plate (v2 — the first version drifted into a full helmet dome and read as a "helmet on top of the helmet"; see spec §6. Rule: the head IS the helmet, `head_top_center` carries low-profile surface details only) |
 | `traits/pilot/chest_icon.glb` | Star chest badge |
 | `traits/pilot/belt_charm.glb` | Gear belt charm (has a small stray chain-link artifact — see spec §6) |
 | `traits/pilot/backpack.glb` | Backpack |

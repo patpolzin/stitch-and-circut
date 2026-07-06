@@ -344,7 +344,40 @@ def fix_unweighted_vertices(mesh_obj, arm_obj):
 # Sockets (spec section 4)
 # --------------------------------------------------------------------------- #
 
-def add_sockets(arm_obj, bounds):
+def surface_extreme(mesh_obj, axis, direction, windows, fallback, label):
+    """Actual mesh-surface coordinate for a surface-mounted socket: the extreme
+    vertex coordinate along `axis` (0=x, 1=y, 2=z) in `direction` (+1/-1),
+    restricted to vertices inside `windows` ({axis_index: (center, half_width)}).
+
+    Placing sockets at fractions of the whole-mesh bounding box is wrong for
+    surface mounts: the bbox extremes belong to whatever sticks out furthest
+    (antenna tips set the top, head/boot extremes set the front), not the local
+    body surface — which floated the top panel above the head and the chest
+    badge / belt charm off the torso front. Sampling the mesh near each
+    socket's own position finds the real surface."""
+    mw = mesh_obj.matrix_world
+    best = None
+    for v in mesh_obj.data.vertices:
+        co = mw @ v.co
+        ok = True
+        for ax, (center, half) in windows.items():
+            if abs(co[ax] - center) >= half:
+                ok = False
+                break
+        if ok:
+            val = co[axis]
+            if best is None or val * direction > best * direction:
+                best = val
+    if best is None:
+        print(f"[rig] WARNING: surface sampling for '{label}' found no vertices; "
+              f"using fallback {fallback:.3f}")
+        return fallback
+    print(f"[rig] surface '{label}': {best:.3f} (bbox fallback {fallback:.3f}, "
+          f"delta {abs(fallback - best):.3f})")
+    return best
+
+
+def add_sockets(arm_obj, bounds, mesh_obj):
     mn, mx, front_y = bounds
     height = mx.z - mn.z
     hw = (mx.x - mn.x) / 2.0
@@ -356,23 +389,55 @@ def add_sockets(arm_obj, bounds):
     def z(t):
         return mn.z + t * height
 
+    X, Y, Z = 0, 1, 2
+    xwin = hw * 0.2
+    zwin = height * 0.03
+
+    def surf(label, axis, direction, fallback, **wins):
+        windows = {}
+        if "x" in wins: windows[X] = (wins["x"], xwin)
+        if "y" in wins: windows[Y] = (wins["y"], xwin)
+        if "zz" in wins: windows[Z] = (wins["zz"], zwin)
+        return surface_extreme(mesh_obj, axis, direction, windows, fallback, label)
+
+    # Sampled true surfaces (see surface_extreme docstring for why bbox
+    # fractions are wrong for surface-mounted sockets):
+    crown_z      = surf("head crown",  Z, +1, mx.z,    x=cx, y=cy)
+    face_front   = surf("faceplate",   Y, -1, front_y, x=cx, zz=z(0.68))
+    chest_front  = surf("chest",       Y, -1, front_y, x=cx, zz=z(0.46))
+    belt_front_s = surf("belt front",  Y, -1, front_y, x=cx, zz=z(0.30))
+    # Belt sides: cap the x search range at 0.5·hw so the A-pose arms/hands
+    # (which hang at hip height further out in x) can't win the sample — we
+    # want the hip/torso side surface, not the arm. The hip flare tops out
+    # around 0.5·hw, so the cap loses nothing on the body itself.
+    belt_left_x = surface_extreme(
+        mesh_obj, X, +1,
+        {X: (cx + hw * 0.25, hw * 0.25), Y: (cy, xwin), Z: (z(0.30), zwin)},
+        cx + hw * 0.5, "belt left")
+    belt_right_x = surface_extreme(
+        mesh_obj, X, -1,
+        {X: (cx - hw * 0.25, hw * 0.25), Y: (cy, xwin), Z: (z(0.30), zwin)},
+        cx - hw * 0.5, "belt right")
+    lboot_front  = surf("left boot",   Y, -1, front_y, x=cx + hw * 0.28, zz=z(0.05))
+    rboot_front  = surf("right boot",  Y, -1, front_y, x=cx - hw * 0.28, zz=z(0.05))
+
     # name -> (bone, world_location)
     sockets = {
-        "head_top_center":   ("Head", Vector((cx, cy, mx.z))),
+        "head_top_center":   ("Head", Vector((cx, cy, crown_z))),
         "head_left_antenna": ("Head", Vector((cx + hw * 0.45, cy, z(0.95)))),
         "head_right_antenna":("Head", Vector((cx - hw * 0.45, cy, z(0.95)))),
         "head_left_side":    ("Head", Vector((cx + hw * 0.88, cy, z(0.70)))),
         "head_right_side":   ("Head", Vector((cx - hw * 0.88, cy, z(0.70)))),
-        "faceplate":         ("Head", Vector((cx, front_y * 0.95, z(0.68)))),
-        "chest_center":      ("Chest", Vector((cx, front_y * 0.85, z(0.46)))),
-        "belt_front":        ("Hips", Vector((cx, front_y * 0.8, z(0.30)))),
-        "belt_left":         ("Hips", Vector((cx + hw * 0.5, cy, z(0.30)))),
-        "belt_right":        ("Hips", Vector((cx - hw * 0.5, cy, z(0.30)))),
+        "faceplate":         ("Head", Vector((cx, face_front, z(0.68)))),
+        "chest_center":      ("Chest", Vector((cx, chest_front, z(0.46)))),
+        "belt_front":        ("Hips", Vector((cx, belt_front_s, z(0.30)))),
+        "belt_left":         ("Hips", Vector((belt_left_x, cy, z(0.30)))),
+        "belt_right":        ("Hips", Vector((belt_right_x, cy, z(0.30)))),
         "back_center":       ("Chest", Vector((cx, back_y, z(0.50)))),
         "left_hand_grip":    ("Hand.L", Vector((cx + hw * 1.0, cy, z(0.28)))),
         "right_hand_grip":   ("Hand.R", Vector((cx - hw * 1.0, cy, z(0.28)))),
-        "left_boot_front":   ("Foot.L", Vector((cx + hw * 0.28, front_y, z(0.03)))),
-        "right_boot_front":  ("Foot.R", Vector((cx - hw * 0.28, front_y, z(0.03)))),
+        "left_boot_front":   ("Foot.L", Vector((cx + hw * 0.28, lboot_front, z(0.03)))),
+        "right_boot_front":  ("Foot.R", Vector((cx - hw * 0.28, rboot_front, z(0.03)))),
     }
 
     created = []
@@ -403,41 +468,104 @@ def add_sockets(arm_obj, bounds):
 # Idle animation (rig validation)
 # --------------------------------------------------------------------------- #
 
-def add_idle_animation(arm_obj):
-    """A minimal procedural idle loop (chest sway + counter head nod) purely to
-    exercise the rig end-to-end — proves the skeleton/skin deform without
-    breaking. Not meant as final animation quality."""
+def _author_clip(arm_obj, name, frames, keys):
+    """Author one procedural clip as its own Action and stash it on an NLA
+    track, so the glTF exporter emits it as a separate named animation (the
+    exporter exports every stashed track; a single active action would allow
+    only one clip per file).
+
+    keys: {bone_name: {"rot": [(frame, (x_deg, y_deg, z_deg)), ...],
+                       "loc": [(frame, (x, y, z)), ...]}}   (loc is bone-local)
+    """
     import math
 
-    scene = bpy.context.scene
-    scene.frame_start = 1
-    scene.frame_end = IDLE_FRAMES
-    scene.render.fps = IDLE_FPS
+    arm_obj.animation_data_create()
+    action = bpy.data.actions.new(name)
+    arm_obj.animation_data.action = action
 
     bpy.ops.object.select_all(action="DESELECT")
     arm_obj.select_set(True)
     bpy.context.view_layer.objects.active = arm_obj
     bpy.ops.object.mode_set(mode="POSE")
-
-    def kf(bone_name, frame, euler_deg):
-        pb = arm_obj.pose.bones[bone_name]
+    # clean slate: previous clip's pose must not bleed into this one
+    for pb in arm_obj.pose.bones:
         pb.rotation_mode = "XYZ"
-        pb.rotation_euler = tuple(math.radians(d) for d in euler_deg)
-        pb.keyframe_insert(data_path="rotation_euler", frame=frame)
+        pb.rotation_euler = (0, 0, 0)
+        pb.location = (0, 0, 0)
 
-    mid = IDLE_FRAMES // 2
-    kf("Chest", 1, (0, 0, 0))
-    kf("Chest", mid, (2, 0, 0))
-    kf("Chest", IDLE_FRAMES, (0, 0, 0))
-    kf("Head", 1, (0, 0, 0))
-    kf("Head", mid, (-1.5, 0, 0))
-    kf("Head", IDLE_FRAMES, (0, 0, 0))
+    for bone_name, channels in keys.items():
+        pb = arm_obj.pose.bones[bone_name]
+        for frame, euler_deg in channels.get("rot", []):
+            pb.rotation_euler = tuple(math.radians(d) for d in euler_deg)
+            pb.keyframe_insert(data_path="rotation_euler", frame=frame)
+        for frame, loc in channels.get("loc", []):
+            pb.location = loc
+            pb.keyframe_insert(data_path="location", frame=frame)
 
     bpy.ops.object.mode_set(mode="OBJECT")
-    if arm_obj.animation_data and arm_obj.animation_data.action:
-        arm_obj.animation_data.action.name = "Idle"
+    track = arm_obj.animation_data.nla_tracks.new()
+    track.name = name
+    track.strips.new(name, 1, action)
+    track.mute = True  # stashed, not playing; exporter still emits it
+    arm_obj.animation_data.action = None
+    print(f"[rig] authored clip '{name}' ({frames} frames)")
+
+
+def add_animation_clips(arm_obj):
+    """Light animation set for the platform: a richer Idle (weight shift +
+    chest sway + head counter-nod + subtle arm swing), a Wave (right arm lift
+    and wave), and a Bounce (springy hop). Procedural and modest by design —
+    'light animations' for the editor preview and game hand-off, not final
+    animation polish. All clips share frame 1 == rest so they blend cleanly."""
+    scene = bpy.context.scene
+    scene.render.fps = IDLE_FPS
+
+    # Idle: 60f/2s loop — weight shift through hips with counters up the spine
+    _author_clip(arm_obj, "Idle", 60, {
+        "Hips":  {"rot": [(1, (0, 0, 0)), (15, (0, 0, 2.0)), (30, (0, 0, 0)),
+                          (45, (0, 0, -2.0)), (60, (0, 0, 0))]},
+        "Chest": {"rot": [(1, (0, 0, 0)), (15, (1.5, 0, -1.0)), (30, (0, 0, 0)),
+                          (45, (1.5, 0, 1.0)), (60, (0, 0, 0))]},
+        "Head":  {"rot": [(1, (0, 0, 0)), (15, (-1.2, 0, -0.8)), (30, (0, 0, 0)),
+                          (45, (-1.2, 0, 0.8)), (60, (0, 0, 0))]},
+        "UpperArm.L": {"rot": [(1, (0, 0, 0)), (15, (1.5, 0, 0)), (30, (0, 0, 0)),
+                               (45, (-1.5, 0, 0)), (60, (0, 0, 0))]},
+        "UpperArm.R": {"rot": [(1, (0, 0, 0)), (15, (-1.5, 0, 0)), (30, (0, 0, 0)),
+                               (45, (1.5, 0, 0)), (60, (0, 0, 0))]},
+    })
+
+    # Wave: 45f/1.5s — raise the right arm and wave the forearm twice
+    _author_clip(arm_obj, "Wave", 45, {
+        "UpperArm.R": {"rot": [(1, (0, 0, 0)), (10, (0, 0, -75)), (35, (0, 0, -75)),
+                               (45, (0, 0, 0))]},
+        "LowerArm.R": {"rot": [(1, (0, 0, 0)), (10, (0, 0, -20)), (16, (0, 0, 20)),
+                               (22, (0, 0, -20)), (28, (0, 0, 20)), (35, (0, 0, -10)),
+                               (45, (0, 0, 0))]},
+        "Head":  {"rot": [(1, (0, 0, 0)), (10, (0, 0, 5)), (35, (0, 0, 5)),
+                          (45, (0, 0, 0))]},
+        "Chest": {"rot": [(1, (0, 0, 0)), (10, (0, 0, 3)), (35, (0, 0, 3)),
+                          (45, (0, 0, 0))]},
+    })
+
+    # Bounce: 30f/1s — springy hop: dip, rise past rest, land (Hips bone points
+    # up, so bone-local +Y is world-up)
+    _author_clip(arm_obj, "Bounce", 30, {
+        "Hips": {"loc": [(1, (0, 0, 0)), (8, (0, -0.05, 0)), (16, (0, 0.06, 0)),
+                         (24, (0, -0.02, 0)), (30, (0, 0, 0))],
+                 "rot": [(1, (0, 0, 0)), (8, (3, 0, 0)), (16, (-2, 0, 0)),
+                         (30, (0, 0, 0))]},
+        "UpperArm.L": {"rot": [(1, (0, 0, 0)), (8, (8, 0, 0)), (16, (-10, 0, 0)),
+                               (30, (0, 0, 0))]},
+        "UpperArm.R": {"rot": [(1, (0, 0, 0)), (8, (8, 0, 0)), (16, (-10, 0, 0)),
+                               (30, (0, 0, 0))]},
+        "Head": {"rot": [(1, (0, 0, 0)), (8, (2, 0, 0)), (16, (-3, 0, 0)),
+                         (30, (0, 0, 0))]},
+    })
+
+    scene.frame_start = 1
+    scene.frame_end = 60
     scene.frame_set(1)
-    print(f"[rig] added idle animation ({IDLE_FRAMES} frames @ {IDLE_FPS}fps)")
+    print(f"[rig] added 3 animation clips (Idle/Wave/Bounce) @ {IDLE_FPS}fps")
 
 
 # --------------------------------------------------------------------------- #
@@ -475,12 +603,12 @@ def main():
     arm_obj, bounds = build_armature(mn, mx)
     hw = (mx.x - mn.x) / 2.0
     skin(mesh_obj, arm_obj, hw)
-    add_sockets(arm_obj, bounds)
+    add_sockets(arm_obj, bounds, mesh_obj)
     export(out_path)
 
-    add_idle_animation(arm_obj)
+    add_animation_clips(arm_obj)
     export(idle_out_path)
-    print(f"[rig] idle output: {idle_out_path}")
+    print(f"[rig] animated output: {idle_out_path}")
 
     print("[rig] done. Verify joint deformation in Blender; nudge LANDMARKS/HW if needed.")
 

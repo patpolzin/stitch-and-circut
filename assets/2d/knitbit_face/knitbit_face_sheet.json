@@ -1,0 +1,91 @@
+{
+  "sheet": "knitbit_face_sheet.png",
+  "cell_size": 512,
+  "grid": {
+    "cols": 5,
+    "rows": 2
+  },
+  "enum": "BitExpression (game/lib/characters/bit_character.dart)",
+  "frames": {
+    "idle": {
+      "x": 0,
+      "y": 0,
+      "w": 512,
+      "h": 512,
+      "col": 0,
+      "row": 0
+    },
+    "happy": {
+      "x": 512,
+      "y": 0,
+      "w": 512,
+      "h": 512,
+      "col": 1,
+      "row": 0
+    },
+    "thinking": {
+      "x": 1024,
+      "y": 0,
+      "w": 512,
+      "h": 512,
+      "col": 2,
+      "row": 0
+    },
+    "scared": {
+      "x": 1536,
+      "y": 0,
+      "w": 512,
+      "h": 512,
+      "col": 3,
+      "row": 0
+    },
+    "effort": {
+      "x": 2048,
+      "y": 0,
+      "w": 512,
+      "h": 512,
+      "col": 4,
+      "row": 0
+    },
+    "starEyes": {
+      "x": 0,
+      "y": 512,
+      "w": 512,
+      "h": 512,
+      "col": 0,
+      "row": 1
+    },
+    "confused": {
+      "x": 512,
+      "y": 512,
+      "w": 512,
+      "h": 512,
+      "col": 1,
+      "row": 1
+    },
+    "lowBattery": {
+      "x": 1024,
+      "y": 512,
+      "w": 512,
+      "h": 512,
+      "col": 2,
+      "row": 1
+    },
+    "startled": {
+      "x": 1536,
+      "y": 512,
+      "w": 512,
+      "h": 512,
+      "col": 3,
+      "row": 1
+    },
+    "relieved": {
+      "x": 2048,
+      "y": 512,
+      "w": 512,
+      "h": 512,
+      "col": 4,
+      "row": 1
+    }
+  }
+}
